@@ -33,11 +33,12 @@ Para leer tu Gmail se usa un pequeño script de Google (gratis, se ejecuta en tu
 
 ## 4. Conectarlo en la app
 
-**Opción A, desde la app:** menú **Integraciones → Classroom** (en móvil: **Cuenta → Classroom**), pega la URL y pulsa **Guardar**.
-Se guarda en ese navegador.
+Entra en la app con tu cuenta y ve a **Integraciones → Classroom** (en móvil: **Cuenta → Google Classroom**),
+pega la URL completa (con `?token=`) y pulsa **Conectar**.
 
-**Opción B, en Vercel (para todos los navegadores):** en tu proyecto de Vercel ve a
-**Settings → Environment Variables**, crea `VITE_CLASSROOM_URL` con la URL completa (con `?token=`) y vuelve a desplegar.
+La URL se envía al servidor de Supabase y se guarda en una tabla privada (`classroom_privado`) a la que la web
+no tiene acceso. A partir de ahí, la Edge Function `classroom` es la única que la usa para pedir las tareas:
+**el navegador nunca vuelve a recibir la URL ni el token**. Cada usuario conecta su propio Classroom.
 
 ## Cómo funciona
 
@@ -55,6 +56,8 @@ Versión: Nueva versión → Implementar**. La URL no cambia.
 
 ## Seguridad
 
-Cualquiera que tenga la URL con el token puede ver los títulos y textos de tus correos de tareas de Classroom
-(no el resto de tu Gmail). No la compartas. Si usas la opción B, la URL queda dentro del código de la web publicada,
-así que cualquiera que la abra podría encontrarla. Si se filtra, cambia el `TOKEN` en el script y publica una versión nueva.
+- La URL con el token **solo está en el servidor** (Supabase). No aparece en el código de la web, ni en Vercel,
+  ni en el navegador, ni en la base de datos accesible desde la app.
+- El token sigue protegiendo el script de Google: sin él, el script no devuelve nada.
+- Si crees que el token se ha filtrado, cambia el `TOKEN` en el script, publica una versión nueva y vuelve a
+  conectar la URL nueva desde la app.

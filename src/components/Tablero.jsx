@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ESTADOS, PRIORIDADES } from '../constants'
 import { clave } from '../hooks/useProyectos'
-import { iniciales, obtenerUsuarios } from '../auth'
 import {
   IconoBuscar,
   IconoCalendario,
@@ -42,7 +41,6 @@ const vistaPrevia = (texto) =>
     .trim()
 
 export default function Tablero({ proyectos, busqueda, onBusqueda, buscadorMovil, onMover, onAbrir, onNuevo, onEditar, onBorrar }) {
-  const nombres = useMemo(() => Object.fromEntries(obtenerUsuarios().map((u) => [u.id, u.nombre])), [])
   const [filtroPrioridad, setFiltroPrioridad] = useState('todas')
   const [orden, setOrden] = useState('prioridad')
   const [arrastrando, setArrastrando] = useState(null) // null | { id, estado }
@@ -277,14 +275,6 @@ export default function Tablero({ proyectos, busqueda, onBusqueda, buscadorMovil
                           <span title={`Prioridad ${p.prioridad}`}>
                             <IconoPrioridad prioridad={p.prioridad} />
                           </span>
-                          {nombres[p.asignadoId] && (
-                            <span
-                              title={`Asignado a ${nombres[p.asignadoId]}`}
-                              className="grid place-items-center size-6 rounded-full bg-primary text-primary-content text-[10px] font-medium"
-                            >
-                              {iniciales(nombres[p.asignadoId])}
-                            </span>
-                          )}
                         </div>
                       </div>
                     </article>

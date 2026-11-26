@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { COLORES, TEMA_INICIAL, cargarTema, esHex, guardarTema } from '../tema'
-import { IconoCheck, IconoPrioridad } from './Iconos'
+import { actualizarPerfil } from '../auth'
+import { IconoCheck, IconoClassroom, IconoPrioridad } from './Iconos'
 
 const MODOS = [
   { value: 'claro', label: 'Claro' },
@@ -14,7 +15,7 @@ const OPCIONES_ESQUINAS = [
   { value: 'redondas', label: 'Redondas', clase: 'rounded-2xl' },
 ]
 
-export default function Configuracion() {
+export default function Configuracion({ usuario, onActualizarUsuario, onClassroom, estadoClassroom }) {
   const [tema, setTema] = useState(cargarTema)
   const [hex, setHex] = useState(tema.color ?? '')
 
@@ -22,6 +23,9 @@ export default function Configuracion() {
     const nuevo = { ...tema, ...campos }
     setTema(nuevo)
     guardarTema(nuevo) // se aplica al momento en toda la app
+    // y se guarda en el perfil para que te siga en cualquier dispositivo
+    onActualizarUsuario({ tema: nuevo })
+    actualizarPerfil(usuario.id, { tema: nuevo }).catch(() => {})
   }
 
   const elegirColor = (color) => {
@@ -33,7 +37,7 @@ export default function Configuracion() {
     <div className="p-4 md:p-8 max-w-4xl space-y-4">
       <div>
         <h2 className="text-base font-semibold">Apariencia</h2>
-        <p className="text-sm text-base-content/60">Los cambios se aplican al momento y se guardan en este navegador.</p>
+        <p className="text-sm text-base-content/60">Los cambios se aplican al momento y se guardan en tu cuenta.</p>
       </div>
 
       <Tarjeta titulo="Modo" descripcion="Claro, oscuro o el mismo que tu sistema operativo.">
@@ -129,6 +133,30 @@ export default function Configuracion() {
             <span className="ml-auto"><IconoPrioridad prioridad="alta" /></span>
             <span className="grid place-items-center size-6 rounded-full bg-primary text-primary-content text-[10px]">SA</span>
           </div>
+        </div>
+      </Tarjeta>
+
+      <div className="pt-4">
+        <h2 className="text-base font-semibold">Integraciones</h2>
+        <p className="text-sm text-base-content/60">Conecta servicios externos para crear proyectos automáticamente.</p>
+      </div>
+
+      <Tarjeta titulo="Google Classroom" descripcion="Crea un proyecto por cada correo de “Nueva tarea”.">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="grid place-items-center size-10 rounded-lg bg-success/10 text-success">
+            <IconoClassroom className="size-5" />
+          </span>
+          <span className="flex items-center gap-2 text-sm flex-1">
+            <span
+              className={`size-2 rounded-full ${
+                estadoClassroom === 'conectado' ? 'bg-success' : estadoClassroom === 'error' ? 'bg-error' : 'bg-base-content/20'
+              }`}
+            />
+            {estadoClassroom === 'conectado' ? 'Conectado' : estadoClassroom === 'error' ? 'Conectado con errores' : 'Sin conectar'}
+          </span>
+          <button className="btn btn-sm" onClick={onClassroom}>
+            {estadoClassroom === 'desconectado' ? 'Conectar' : 'Gestionar'}
+          </button>
         </div>
       </Tarjeta>
 

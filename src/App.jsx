@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { cerrarSesion, usuarioActual } from './auth'
+import { cerrarSesion, esOwner, usuarioActual } from './auth'
 import { clave, useProyectos } from './hooks/useProyectos'
 import Login from './components/Login'
 import Sidebar from './components/Sidebar'
@@ -7,35 +7,82 @@ import BarraMovil from './components/BarraMovil'
 import Resumen from './components/Resumen'
 import Tablero from './components/Tablero'
 import Configuracion from './components/Configuracion'
+import Usuarios from './components/Usuarios'
 import ProyectoPanel from './components/ProyectoPanel'
 import Modal from './components/Modal'
 import ClassroomConfig from './components/ClassroomConfig'
 import { useClassroom } from './hooks/useClassroom'
 import { IconoBuscar, IconoMas } from './components/Iconos'
+import { supabase } from './supabase'
+import { aplicarTema } from './tema'
 
 export default function App() {
-  const [usuario, setUsuario] = useState(usuarioActual)
+  const [usuario, setUsuario] = useState(undefined) // undefined = comprobando sesión
+
+  useEffect(() => {
+    usuarioActual().then(setUsuario)
+    // Si la sesión caduca o se cierra en otra pestaña, volver al login
+    const { data } = supabase.auth.onAuthStateChange((evento) => {
+      if (evento === 'SIGNED_OUT') setUsuario(null)
+    })
+    return () => data.subscription.unsubscribe()
+  }, [])
+
+  // El tema guardado en el perfil sigue al usuario en cualquier dispositivo
+  useEffect(() => {
+    if (usuario?.tema) {
+      localStorage.setItem('tema', JSON.stringify(usuario.tema))
+      aplicarTema(usuario.tema)
+    }
+  }, [usuario])
+
+  if (usuario === undefined)
+    return (
+      <div className="min-h-screen grid place-items-center bg-base-200">
+        <span className="loading loading-spinner loading-md text-base-content/50" />
+      </div>
+    )
   if (!usuario) return <Login onEntrar={setUsuario} />
   return (
     <Escritorio
+      key={usuario.id}
       usuario={usuario}
-      onSalir={() => {
-        cerrarSesion()
+      onActualizarUsuario={(campos) => setUsuario((u) => ({ ...u, ...campos }))}
+      onSalir={async () => {
+        await cerrarSesion()
         setUsuario(null)
       }}
     />
   )
 }
 
-function Escritorio({ usuario, onSalir }) {
-  const { proyectos, guardar, importar, editar, moverA, borrar, comentar, borrarComentario } = useProyectos(usuario)
-  const [vista, setVista] = useState('resumen')
+function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
+  const {
+    proyectos,
+    cargando,
+    error,
+    limpiarError,
+    guardar,
+    importar,
+    editar,
+    moverA,
+    borrar,
+    comentar,
+    borrarComentario,
+    proyectosLocales,
+    migrarLocales,
+    descartarLocales,
+  } = useProyectos(usuario)
+  const [migrando, setMigrando] = useState(false)
+  const [vistaElegida, setVista] = useState('resumen')
+  const owner = esOwner(usuario)
+  const vista = vistaElegida === 'usuarios' && !owner ? 'resumen' : vistaElegida // solo el owner ve Usuarios
   const [busqueda, setBusqueda] = useState('')
   const [panel, setPanel] = useState(null) // null | { id } | { nuevo: true, estado? }
   const [aBorrar, setABorrar] = useState(null)
   const [configClassroom, setConfigClassroom] = useState(false)
-  const classroom = useClassroom(importar)
-  const estadoClassroom = !classroom.url ? 'desconectado' : classroom.error ? 'error' : 'conectado'
+  const classroom = useClassroom(importar, !cargando && proyectosLocales === 0)
+  const estadoClassroom = !classroom.conectado ? 'desconectado' : classroom.error ? 'error' : 'conectado'
   const buscador = useRef(null)
   const buscadorMovil = useRef(null)
   const abierto = panel?.id ? proyectos.find((p) => p.id === panel.id) : null
@@ -60,12 +107,13 @@ function Escritorio({ usuario, onSalir }) {
       <Sidebar vista={vista} onVista={setVista} usuario={usuario} onSalir={onSalir} totalProyectos={proyectos.length}
         onClassroom={() => setConfigClassroom(true)}
         estadoClassroom={estadoClassroom}
+        owner={owner}
       />
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="flex items-center gap-3 h-16 px-4 md:px-6 border-b border-base-300 bg-base-100 shrink-0">
           <h1 className="text-lg font-semibold flex-1 truncate">
-            {vista === 'resumen' ? `Hola, ${nombreCorto}` : vista === 'configuracion' ? 'Configuración' : 'Tablero de proyectos'}
+            {vista === 'resumen' ? `Hola, ${nombreCorto}` : vista === 'configuracion' ? 'Configuración' : vista === 'usuarios' ? 'Usuarios' : 'Tablero de proyectos'}
           </h1>
           <button className="btn btn-primary hidden md:inline-flex h-10" onClick={() => setPanel({ nuevo: true })}>
             <IconoMas className="size-4" />
@@ -87,8 +135,47 @@ function Escritorio({ usuario, onSalir }) {
         </header>
 
         <main className="flex-1 overflow-auto pb-16 md:pb-0">
-          {vista === 'configuracion' ? (
-            <Configuracion />
+          {error && (
+            <div role="alert" className="alert alert-error alert-soft m-4 md:mx-8 text-sm">
+              <span className="flex-1">{error}</span>
+              <button className="btn btn-xs btn-ghost" onClick={limpiarError}>Cerrar</button>
+            </div>
+          )}
+
+          {!cargando && proyectosLocales > 0 && (
+            <div className="alert m-4 md:mx-8 bg-base-100 border-base-300 text-sm flex flex-wrap">
+              <span className="flex-1 min-w-60">
+                Hay <strong>{proyectosLocales} proyectos</strong> guardados solo en este navegador (de la versión
+                anterior). ¿Quieres subirlos a tu cuenta para verlos en cualquier dispositivo?
+              </span>
+              <div className="flex gap-2">
+                <button className="btn btn-sm btn-ghost" disabled={migrando} onClick={descartarLocales}>
+                  No, ignorar
+                </button>
+                <button
+                  className="btn btn-sm btn-primary"
+                  disabled={migrando}
+                  onClick={async () => {
+                    setMigrando(true)
+                    await migrarLocales()
+                    setMigrando(false)
+                  }}
+                >
+                  {migrando && <span className="loading loading-spinner loading-xs" />}
+                  Subir a mi cuenta
+                </button>
+              </div>
+            </div>
+          )}
+
+          {cargando ? (
+            <div className="grid place-items-center py-24">
+              <span className="loading loading-spinner loading-md text-base-content/50" />
+            </div>
+          ) : vista === 'usuarios' ? (
+            <Usuarios usuario={usuario} />
+          ) : vista === 'configuracion' ? (
+            <Configuracion usuario={usuario} onActualizarUsuario={onActualizarUsuario} onClassroom={() => setConfigClassroom(true)} estadoClassroom={estadoClassroom} />
           ) : vista === 'resumen' ? (
             <Resumen proyectos={proyectos} onAbrir={(id) => setPanel({ id })} onIrTablero={() => setVista('tablero')} />
           ) : (
@@ -118,6 +205,8 @@ function Escritorio({ usuario, onSalir }) {
         usuario={usuario}
         onSalir={onSalir}
         onClassroom={() => setConfigClassroom(true)}
+        estadoClassroom={estadoClassroom}
+        owner={owner}
       />
 
       {(abierto || panel?.nuevo) && (
@@ -134,7 +223,7 @@ function Escritorio({ usuario, onSalir }) {
             }}
             onActualizar={(campos) => editar(abierto.id, campos)}
             onBorrar={() => setABorrar(abierto)}
-            onComentar={(texto, anonimo) => comentar(abierto.id, texto, anonimo)}
+            onComentar={(texto) => comentar(abierto.id, texto)}
             onBorrarComentario={(cid) => borrarComentario(abierto.id, cid)}
             onCerrar={cerrarPanel}
           />

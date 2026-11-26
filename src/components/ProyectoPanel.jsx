@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { ESTADOS, PRIORIDADES, findOption } from '../constants'
-import { idAnonimo, iniciales, obtenerUsuarios } from '../auth'
+import { iniciales } from '../auth'
 import Markdown from './Markdown'
 import { IconoCerrar, IconoClassroom, IconoEnlace, IconoPrioridad, IconoPuntos, IconoTarea } from './Iconos'
 import { CREADOR_CLASSROOM } from '../classroom'
@@ -20,7 +20,6 @@ const vacio = (estado) => ({
   fecha: hoy(),
   estado: estado ?? 'por_hacer',
   prioridad: 'media',
-  asignadoId: '',
 })
 
 const formatearMomento = (ms) =>
@@ -49,16 +48,14 @@ export default function ProyectoPanel({
   const [borrador, setBorrador] = useState(() => vacio(estadoInicial))
   const [error, setError] = useState('')
   const [detallesAbiertos, setDetallesAbiertos] = useState(true)
-  const usuarios = useMemo(() => obtenerUsuarios(), [])
   const datos = creando ? borrador : proyecto
 
   const cambiar = (campos) => (creando ? setBorrador((b) => ({ ...b, ...campos })) : onActualizar(campos))
-  const nombreDe = (id) => usuarios.find((u) => u.id === id)?.nombre
 
   const crear = () => {
     if (!borrador.titulo.trim()) return setError('El título es obligatorio')
     if (!borrador.fecha) return setError('La fecha es obligatoria')
-    onCrear({ ...borrador, titulo: borrador.titulo.trim(), descripcion: borrador.descripcion.trim(), creadorId: usuario.id })
+    onCrear({ ...borrador, titulo: borrador.titulo.trim(), descripcion: borrador.descripcion.trim() })
   }
 
   return (
@@ -144,25 +141,6 @@ export default function ProyectoPanel({
             </button>
             {detallesAbiertos && (
               <dl className="px-4 pb-4 pt-1 space-y-1 text-sm">
-                <Fila etiqueta="Persona asignada">
-                  <label className="flex items-center gap-2 -ml-2 px-2 py-1 rounded-md hover:bg-base-200 cursor-pointer">
-                    {datos.asignadoId ? <Avatar nombre={nombreDe(datos.asignadoId)} pequeno /> : <AvatarVacio />}
-                    <select
-                      className="flex-1 bg-transparent outline-none cursor-pointer appearance-none"
-                      value={datos.asignadoId ?? ''}
-                      onChange={(e) => cambiar({ asignadoId: e.target.value })}
-                    >
-                      <option value="">Sin asignar</option>
-                      {usuarios.map((u) => <option key={u.id} value={u.id}>{u.nombre}</option>)}
-                    </select>
-                  </label>
-                  {datos.asignadoId !== usuario.id && (
-                    <button className="text-xs text-info hover:underline mt-0.5" onClick={() => cambiar({ asignadoId: usuario.id })}>
-                      Asignármelo
-                    </button>
-                  )}
-                </Fila>
-
                 <Fila etiqueta="Prioridad">
                   <label className="flex items-center gap-2 -ml-2 px-2 py-1 rounded-md hover:bg-base-200 cursor-pointer">
                     <IconoPrioridad prioridad={datos.prioridad} />
@@ -196,8 +174,8 @@ export default function ProyectoPanel({
                       </>
                     ) : (
                       <>
-                        <Avatar nombre={creando ? usuario.nombre : nombreDe(datos.creadorId) ?? '—'} pequeno />
-                        {creando ? usuario.nombre : nombreDe(datos.creadorId) ?? 'Desconocido'}
+                        <Avatar nombre={usuario.nombre} pequeno />
+                        {usuario.nombre}
                       </>
                     )}
                   </span>
@@ -369,62 +347,48 @@ function SelectorEstado({ estado, onCambiar }) {
 
 function Comentarios({ comentarios, usuario, onComentar, onBorrar }) {
   const [texto, setTexto] = useState('')
-  const [anonimo, setAnonimo] = useState(false)
-  const alias = useMemo(() => idAnonimo(usuario), [usuario])
   const enviar = (e) => {
     e.preventDefault()
     if (!texto.trim()) return
-    onComentar(texto.trim(), anonimo)
+    onComentar(texto.trim())
     setTexto('')
   }
 
   return (
     <div>
       <form onSubmit={enviar} className="flex gap-3 items-start mb-6">
-        {anonimo ? <AvatarAnonimo /> : <Avatar nombre={usuario.nombre} />}
+        <Avatar nombre={usuario.nombre} />
         <div className="flex-1 rounded-lg border border-base-300 focus-within:border-info transition">
           <textarea
             className="w-full resize-none bg-transparent px-3 pt-2.5 text-sm outline-none"
             rows={2}
-            placeholder={anonimo ? `Comentar como ${alias}...` : 'Añade un comentario...'}
+            placeholder="Añade un comentario o nota..."
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) enviar(e)
             }}
           />
-          <div className="flex flex-wrap items-center justify-between gap-2 px-2 pb-2">
-            <label className="flex items-center gap-1.5 pl-1 text-xs text-base-content/70 cursor-pointer">
-              <input type="checkbox" className="toggle toggle-xs" checked={anonimo} onChange={(e) => setAnonimo(e.target.checked)} />
-              Anónimo{anonimo && <span className="text-base-content/50">· {alias}</span>}
-            </label>
-            <div className="flex items-center gap-2">
-              <span className="hidden sm:inline text-[11px] text-base-content/40">Ctrl + Enter para enviar</span>
-              <button type="submit" className="btn btn-xs btn-primary" disabled={!texto.trim()}>Comentar</button>
-            </div>
+          <div className="flex items-center justify-between gap-2 px-2 pb-2">
+            <span className="text-[11px] text-base-content/40 pl-1">Ctrl + Enter para enviar</span>
+            <button type="submit" className="btn btn-xs btn-primary" disabled={!texto.trim()}>Comentar</button>
           </div>
-          {anonimo && (
-            <p className="px-3 pb-2 text-[11px] text-warning">Los comentarios anónimos no se pueden editar ni eliminar.</p>
-          )}
         </div>
       </form>
 
       <ul className="space-y-5">
         {[...comentarios].reverse().map((c) => (
           <li key={c.id} className="flex gap-3">
-            {c.anonimo ? <AvatarAnonimo /> : <Avatar nombre={c.autorNombre} />}
+            <Avatar nombre={c.autorNombre} />
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-2 text-sm">
                 <span className="font-medium">{c.autorNombre}</span>
-                {c.anonimo && <span className="badge badge-xs badge-ghost">Anónimo</span>}
                 <span className="text-xs text-base-content/50">{formatearMomento(c.fecha)}</span>
               </div>
               <p className="text-sm whitespace-pre-wrap break-words mt-1">{c.texto}</p>
-              {!c.anonimo && c.autorId === usuario.id && (
-                <button className="text-xs text-base-content/40 hover:text-error mt-1" onClick={() => onBorrar(c.id)}>
-                  Eliminar
-                </button>
-              )}
+              <button className="text-xs text-base-content/40 hover:text-error mt-1" onClick={() => onBorrar(c.id)}>
+                Eliminar
+              </button>
             </div>
           </li>
         ))}
@@ -477,17 +441,4 @@ function Avatar({ nombre = '', pequeno }) {
   )
 }
 
-function AvatarAnonimo() {
-  return (
-    <span className="grid place-items-center shrink-0 size-8 rounded-full bg-base-300 text-base-content/60">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="size-4">
-        <circle cx="12" cy="8" r="4" />
-        <path d="M4 21a8 8 0 0 1 16 0" />
-      </svg>
-    </span>
-  )
-}
 
-function AvatarVacio() {
-  return <span className="size-6 shrink-0 rounded-full border border-dashed border-base-content/30" />
-}

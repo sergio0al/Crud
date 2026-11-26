@@ -1,26 +1,25 @@
 import { useState } from 'react'
-import { iniciarSesion, registrar } from '../auth'
+import { iniciarSesion } from '../auth'
 import { IconoLogo } from './Iconos'
 
+// Solo inicio de sesión: las cuentas las crea el owner desde "Usuarios"
 export default function Login({ onEntrar }) {
-  const [modo, setModo] = useState('login') // 'login' | 'registro'
-  const [form, setForm] = useState({ nombre: '', email: '', password: '' })
+  const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
+  const [entrando, setEntrando] = useState(false)
 
   const cambiar = (e) => setForm({ ...form, [e.target.name]: e.target.value })
 
-  const enviar = (e) => {
+  const enviar = async (e) => {
     e.preventDefault()
+    setEntrando(true)
+    setError('')
     try {
-      onEntrar(modo === 'login' ? iniciarSesion(form.email, form.password) : registrar(form))
+      onEntrar(await iniciarSesion(form.email, form.password))
     } catch (err) {
       setError(err.message)
+      setEntrando(false)
     }
-  }
-
-  const alternar = () => {
-    setModo(modo === 'login' ? 'registro' : 'login')
-    setError('')
   }
 
   return (
@@ -33,18 +32,9 @@ export default function Login({ onEntrar }) {
 
         <form onSubmit={enviar} className="card bg-base-100 border border-base-300">
           <div className="card-body gap-3">
-            <h2 className="text-lg font-semibold text-center">
-              {modo === 'login' ? 'Inicia sesión para continuar' : 'Crear una cuenta'}
-            </h2>
+            <h2 className="text-lg font-semibold text-center">Inicia sesión para continuar</h2>
 
             {error && <div role="alert" className="alert alert-error alert-soft py-2 text-sm">{error}</div>}
-
-            {modo === 'registro' && (
-              <fieldset className="fieldset">
-                <legend className="fieldset-legend">Nombre</legend>
-                <input name="nombre" value={form.nombre} onChange={cambiar} className="input w-full" placeholder="Tu nombre" />
-              </fieldset>
-            )}
 
             <fieldset className="fieldset">
               <legend className="fieldset-legend">Correo electrónico</legend>
@@ -73,15 +63,13 @@ export default function Login({ onEntrar }) {
               />
             </fieldset>
 
-            <button type="submit" className="btn btn-primary w-full mt-2">
-              {modo === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
+            <button type="submit" className="btn btn-primary w-full mt-2" disabled={entrando}>
+              {entrando && <span className="loading loading-spinner loading-xs" />}
+              Iniciar sesión
             </button>
 
-            <p className="text-sm text-center text-base-content/70">
-              {modo === 'login' ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?'}{' '}
-              <button type="button" className="link link-accent" onClick={alternar}>
-                {modo === 'login' ? 'Crear una' : 'Inicia sesión'}
-              </button>
+            <p className="text-sm text-center text-base-content/60">
+              ¿No tienes cuenta? Pídesela al administrador.
             </p>
           </div>
         </form>

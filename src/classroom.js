@@ -1,37 +1,34 @@
 // Integración con Google Classroom a través de un script de Google Apps Script
 // que lee los correos de "Nueva tarea" (ver CLASSROOM.md).
+//
+// Seguridad: la URL del script (con su token) se guarda SOLO en el servidor (tabla classroom_privado)
+// y la usa la Edge Function "classroom". El navegador nunca la recibe: solo pide las tareas.
+import { supabase } from './supabase'
 
-const CLAVE_URL = 'classroom_url'
-const CLAVE_IMPORTADOS = 'classroom_importados'
 const CLAVE_ULTIMA = 'classroom_ultima'
 
 export const CREADOR_CLASSROOM = 'classroom'
 
-export const obtenerUrl = () => localStorage.getItem(CLAVE_URL) || import.meta.env.VITE_CLASSROOM_URL || ''
-export const guardarUrl = (url) =>
-  url ? localStorage.setItem(CLAVE_URL, url.trim()) : localStorage.removeItem(CLAVE_URL)
-
 export const ultimaSincronizacion = () => Number(localStorage.getItem(CLAVE_ULTIMA)) || null
 
-const importados = () => new Set(JSON.parse(localStorage.getItem(CLAVE_IMPORTADOS) || '[]'))
-
-export async function pedirTareas(url) {
-  let respuesta
-  try {
-    respuesta = await fetch(url)
-  } catch {
-    throw new Error('No se pudo conectar con el script. Revisa la URL y que esté publicado para "Cualquier persona".')
+async function llamar(cuerpo) {
+  const { data, error } = await supabase.functions.invoke('classroom', { body: cuerpo })
+  if (error) {
+    let mensaje = 'No se pudo contactar con el servidor de Classroom'
+    try {
+      mensaje = (await error.context.json()).error ?? mensaje
+    } catch {
+      /* sin cuerpo */
+    }
+    throw new Error(mensaje)
   }
-  if (!respuesta.ok) throw new Error(`El script respondió con error ${respuesta.status}`)
-  let datos
-  try {
-    datos = await respuesta.json()
-  } catch {
-    throw new Error('La respuesta no es válida. ¿Es la URL de la aplicación web (termina en /exec)?')
-  }
-  if (datos.error) throw new Error(datos.error)
-  return datos.tareas ?? []
+  return data
 }
+
+/** ¿Tiene el usuario Classroom conectado? (sin revelar la URL) */
+export const estadoClassroom = async () => (await llamar({ accion: 'estado' })).configurado
+export const guardarUrl = async (url) => (await llamar({ accion: 'guardar', url })).configurado
+export const desconectar = async () => (await llamar({ accion: 'borrar' })).configurado
 
 const diasHasta = (iso) => Math.ceil((new Date(iso + 'T00:00:00') - new Date().setHours(0, 0, 0, 0)) / 86400000)
 
@@ -57,31 +54,21 @@ export function aProyecto(t) {
     fecha,
     estado: 'por_hacer',
     prioridad: t.entrega && diasHasta(t.entrega) <= 2 ? 'alta' : 'media',
-    asignadoId: '',
-    creadorId: CREADOR_CLASSROOM,
     origen: { tipo: 'classroom', id: t.id, curso: t.curso || '', enlace: t.enlace || '' },
   }
 }
 
-/** Descarga las tareas y devuelve solo las que aún no se han importado (también las borradas cuentan como importadas). */
+/** Pide al servidor las tareas nuevas (el servidor ya las marca como importadas). */
 let ocupado = false
 
-export async function sincronizar(url) {
+export async function sincronizar() {
   if (ocupado) return null // evita dos sincronizaciones a la vez (y duplicados)
   ocupado = true
   try {
-    return await descargarNuevas(url)
+    const { total, nuevas } = await llamar({ accion: 'sincronizar' })
+    localStorage.setItem(CLAVE_ULTIMA, String(Date.now()))
+    return { total, nuevas: nuevas.map(aProyecto) }
   } finally {
     ocupado = false
   }
-}
-
-async function descargarNuevas(url) {
-  const tareas = await pedirTareas(url)
-  const ya = importados()
-  const nuevas = tareas.filter((t) => t.id && !ya.has(t.id))
-  nuevas.forEach((t) => ya.add(t.id))
-  localStorage.setItem(CLAVE_IMPORTADOS, JSON.stringify([...ya]))
-  localStorage.setItem(CLAVE_ULTIMA, String(Date.now()))
-  return { total: tareas.length, nuevas: nuevas.map(aProyecto) }
 }

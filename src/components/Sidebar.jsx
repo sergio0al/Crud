@@ -1,12 +1,12 @@
 import { iniciales } from '../auth'
-import { IconoAjustes, IconoCasa, IconoClassroom, IconoLogo, IconoSalir, IconoTablero } from './Iconos'
+import { IconoAjustes, IconoCasa, IconoClassroom, IconoLogo, IconoSalir, IconoTablero, IconoUsuarios } from './Iconos'
 
 const SECCIONES = [
   { titulo: 'General', items: [{ id: 'resumen', label: 'Resumen', Icono: IconoCasa }] },
   { titulo: 'Proyectos', items: [{ id: 'tablero', label: 'Tablero', Icono: IconoTablero }] },
 ]
 
-export default function Sidebar({ vista, onVista, usuario, onSalir, totalProyectos, onClassroom, estadoClassroom }) {
+export default function Sidebar({ vista, onVista, usuario, onSalir, totalProyectos, onClassroom, estadoClassroom, owner }) {
   return (
     <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-base-300 bg-base-100">
       <div className="flex items-center gap-3 h-16 px-5">
@@ -65,6 +65,17 @@ export default function Sidebar({ vista, onVista, usuario, onSalir, totalProyect
 
         <div>
           <p className="px-3 mb-1.5 text-xs text-base-content/60">Ajustes</p>
+          {owner && (
+            <button
+              onClick={() => onVista('usuarios')}
+              className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${
+                vista === 'usuarios' ? 'bg-base-200 font-medium' : 'text-base-content/80 hover:bg-base-200/60'
+              }`}
+            >
+              <IconoUsuarios className="size-[18px] shrink-0" />
+              <span className="flex-1 text-left">Usuarios</span>
+            </button>
+          )}
           <button
             onClick={() => onVista('configuracion')}
             className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${
@@ -83,7 +94,7 @@ export default function Sidebar({ vista, onVista, usuario, onSalir, totalProyect
         </div>
         <div className="hidden md:block flex-1 min-w-0 leading-tight">
           <p className="text-sm truncate">{usuario.nombre}</p>
-          <p className="text-xs text-base-content/60 truncate">{usuario.email}</p>
+          <p className="text-xs text-base-content/60 truncate">{owner ? 'Owner' : usuario.email}</p>
         </div>
         <button
           onClick={onSalir}

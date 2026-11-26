@@ -1,27 +1,32 @@
 import { useState } from 'react'
-import { guardarUrl } from '../classroom'
 import { IconoCerrar } from './Iconos'
 
 const formatear = (ms) =>
   new Date(ms).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
 export default function ClassroomConfig({ classroom, onCerrar }) {
-  const { url, setUrl, cargando, error, ultima, sincronizarAhora } = classroom
-  const [texto, setTexto] = useState(url)
+  const { conectado, conectar, quitar, cargando, error, ultima, sincronizarAhora } = classroom
+  const [texto, setTexto] = useState('')
   const [aviso, setAviso] = useState('')
+  const [guardando, setGuardando] = useState(false)
 
-  const guardar = (e) => {
+  const guardar = async (e) => {
     e.preventDefault()
     const limpio = texto.trim()
-    if (limpio && !/^https:\/\/script\.google(usercontent)?\.com\//.test(limpio)) {
+    if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(limpio)) {
       return setAviso('La URL debe ser la de la aplicación web de Google Apps Script (https://script.google.com/...).')
     }
-    if (limpio && !/[?&]token=/.test(limpio)) {
-      return setAviso('Falta el token al final de la URL: ...?token=TU_CLAVE')
-    }
+    if (!/[?&]token=/.test(limpio)) return setAviso('Falta el token al final de la URL: ...?token=TU_CLAVE')
     setAviso('')
-    guardarUrl(limpio)
-    setUrl(limpio)
+    setGuardando(true)
+    try {
+      await conectar(limpio)
+      setTexto('') // no se queda en pantalla: solo la conoce el servidor
+    } catch (err) {
+      setAviso(err.message)
+    } finally {
+      setGuardando(false)
+    }
   }
 
   return (
@@ -39,17 +44,33 @@ export default function ClassroomConfig({ classroom, onCerrar }) {
       </div>
 
       <div className="px-6 py-5 space-y-5 text-sm">
-        <div className="flex items-center gap-2">
-          <span className={`size-2 rounded-full ${url ? (error ? 'bg-error' : 'bg-success') : 'bg-base-content/30'}`} />
-          {url ? (error ? 'Conectado con errores' : 'Conectado') : 'Sin conectar'}
-          {ultima && url && <span className="text-base-content/50">· Última comprobación {formatear(ultima)}</span>}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`size-2 rounded-full ${conectado ? (error ? 'bg-error' : 'bg-success') : 'bg-base-content/30'}`} />
+          {conectado ? (error ? 'Conectado con errores' : 'Conectado') : 'Sin conectar'}
+          {ultima && conectado && <span className="text-base-content/50">· Última comprobación {formatear(ultima)}</span>}
         </div>
 
-        {error && url && <div className="alert alert-error alert-soft py-2 text-sm">{error}</div>}
+        {error && conectado && <div className="alert alert-error alert-soft py-2 text-sm">{error}</div>}
+
+        {conectado && (
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn btn-sm" onClick={() => sincronizarAhora()} disabled={cargando}>
+              {cargando && <span className="loading loading-spinner loading-xs" />}
+              Comprobar ahora
+            </button>
+            <button
+              type="button"
+              className="btn btn-sm btn-ghost text-error"
+              onClick={() => quitar().catch((err) => setAviso(err.message))}
+            >
+              Desconectar
+            </button>
+          </div>
+        )}
 
         <form onSubmit={guardar} className="space-y-2">
           <label className="text-xs font-medium text-base-content/70" htmlFor="url-classroom">
-            URL del script (aplicación web)
+            {conectado ? 'Cambiar la URL del script' : 'URL del script (aplicación web)'}
           </label>
           <input
             id="url-classroom"
@@ -57,30 +78,16 @@ export default function ClassroomConfig({ classroom, onCerrar }) {
             placeholder="https://script.google.com/macros/s/.../exec?token=TU_CLAVE"
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
+            autoComplete="off"
           />
+          <p className="text-xs text-base-content/50">
+            🔒 Se guarda solo en el servidor. Nadie (ni tú desde aquí) puede volver a verla; si la cambias, pega la nueva.
+          </p>
           {aviso && <p className="text-xs text-error">{aviso}</p>}
-          <div className="flex flex-wrap gap-2 pt-1">
-            <button type="submit" className="btn btn-sm btn-primary">Guardar</button>
-            {url && (
-              <button type="button" className="btn btn-sm" onClick={() => sincronizarAhora()} disabled={cargando}>
-                {cargando && <span className="loading loading-spinner loading-xs" />}
-                Comprobar ahora
-              </button>
-            )}
-            {url && (
-              <button
-                type="button"
-                className="btn btn-sm btn-ghost text-error"
-                onClick={() => {
-                  guardarUrl('')
-                  setUrl('')
-                  setTexto('')
-                }}
-              >
-                Desconectar
-              </button>
-            )}
-          </div>
+          <button type="submit" className="btn btn-sm btn-primary" disabled={guardando || !texto.trim()}>
+            {guardando && <span className="loading loading-spinner loading-xs" />}
+            {conectado ? 'Guardar nueva URL' : 'Conectar'}
+          </button>
         </form>
 
         <details className="rounded-lg border border-base-300 px-4 py-3">
@@ -92,7 +99,7 @@ export default function ClassroomConfig({ classroom, onCerrar }) {
             <li>Ejecuta la función <code>probar</code> y acepta los permisos de Gmail.</li>
             <li>
               <strong>Implementar → Nueva implementación → Aplicación web</strong>. Ejecutar como: <em>Yo</em>. Acceso:{' '}
-              <em>Cualquier persona</em>.
+              <em>Cualquier usuario</em>.
             </li>
             <li>Copia la URL, añade <code>?token=TU_CLAVE</code> al final y pégala aquí.</li>
           </ol>
