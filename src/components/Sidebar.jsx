@@ -1,5 +1,5 @@
 import { iniciales } from '../auth'
-import { IconoCasa, IconoClassroom, IconoLogo, IconoSalir, IconoTablero } from './Iconos'
+import { IconoAjustes, IconoCasa, IconoClassroom, IconoLogo, IconoSalir, IconoTablero } from './Iconos'
 
 const SECCIONES = [
   { titulo: 'General', items: [{ id: 'resumen', label: 'Resumen', Icono: IconoCasa }] },
@@ -60,6 +60,19 @@ export default function Sidebar({ vista, onVista, usuario, onSalir, totalProyect
                 estadoClassroom === 'conectado' ? 'bg-success' : estadoClassroom === 'error' ? 'bg-error' : 'bg-base-content/20'
               }`}
             />
+          </button>
+        </div>
+
+        <div>
+          <p className="px-3 mb-1.5 text-xs text-base-content/60">Ajustes</p>
+          <button
+            onClick={() => onVista('configuracion')}
+            className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${
+              vista === 'configuracion' ? 'bg-base-200 font-medium' : 'text-base-content/80 hover:bg-base-200/60'
+            }`}
+          >
+            <IconoAjustes className="size-[18px] shrink-0" />
+            <span className="flex-1 text-left">Configuración</span>
           </button>
         </div>
       </nav>

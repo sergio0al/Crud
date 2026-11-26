@@ -6,6 +6,7 @@ import Sidebar from './components/Sidebar'
 import BarraMovil from './components/BarraMovil'
 import Resumen from './components/Resumen'
 import Tablero from './components/Tablero'
+import Configuracion from './components/Configuracion'
 import ProyectoPanel from './components/ProyectoPanel'
 import Modal from './components/Modal'
 import ClassroomConfig from './components/ClassroomConfig'
@@ -64,7 +65,7 @@ function Escritorio({ usuario, onSalir }) {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="flex items-center gap-3 h-16 px-4 md:px-6 border-b border-base-300 bg-base-100 shrink-0">
           <h1 className="text-lg font-semibold flex-1 truncate">
-            {vista === 'resumen' ? `Hola, ${nombreCorto}` : 'Tablero de proyectos'}
+            {vista === 'resumen' ? `Hola, ${nombreCorto}` : vista === 'configuracion' ? 'Configuración' : 'Tablero de proyectos'}
           </h1>
           <button className="btn btn-primary hidden md:inline-flex h-10" onClick={() => setPanel({ nuevo: true })}>
             <IconoMas className="size-4" />
@@ -86,7 +87,9 @@ function Escritorio({ usuario, onSalir }) {
         </header>
 
         <main className="flex-1 overflow-auto pb-16 md:pb-0">
-          {vista === 'resumen' ? (
+          {vista === 'configuracion' ? (
+            <Configuracion />
+          ) : vista === 'resumen' ? (
             <Resumen proyectos={proyectos} onAbrir={(id) => setPanel({ id })} onIrTablero={() => setVista('tablero')} />
           ) : (
             <Tablero

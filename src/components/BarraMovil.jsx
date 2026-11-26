@@ -1,5 +1,5 @@
 import { iniciales } from '../auth'
-import { IconoBuscar, IconoCasa, IconoClassroom, IconoMas, IconoSalir, IconoTablero } from './Iconos'
+import { IconoAjustes, IconoBuscar, IconoCasa, IconoClassroom, IconoMas, IconoSalir, IconoTablero } from './Iconos'
 
 // Barra de navegación inferior, solo visible en móvil
 export default function BarraMovil({ vista, onVista, onNuevo, onBuscar, usuario, onSalir, onClassroom }) {
@@ -25,6 +25,11 @@ export default function BarraMovil({ vista, onVista, onNuevo, onBuscar, usuario,
           <li>
             <button onClick={() => { document.activeElement?.blur(); onClassroom() }}>
               <IconoClassroom className="size-4" /> Classroom
+            </button>
+          </li>
+          <li>
+            <button onClick={() => { document.activeElement?.blur(); onVista('configuracion') }}>
+              <IconoAjustes className="size-4" /> Configuración
             </button>
           </li>
           <li>
