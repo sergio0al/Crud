@@ -79,17 +79,96 @@ export default function Tablero({ proyectos, busqueda, onBusqueda, buscadorMovil
       )
   }, [proyectos, busqueda, filtroPrioridad, orden])
 
+  // ---------- Arrastrar con eventos de puntero ----------
+  // No usa el drag & drop nativo del navegador (falla con pantallas táctiles, algunos trackpads y navegadores
+  // integrados). Ratón: se empieza a arrastrar al moverlo unos píxeles. Dedo: manteniendo pulsado un momento.
+  const arrastre = useRef(null) // { id, estado, titulo, x0, y0, tipo, activo, temporizador }
+  const [fantasma, setFantasma] = useState(null) // { x, y, titulo } tarjeta que sigue al puntero
+  const ignorarClick = useRef(false)
+  const onMoverRef = useRef(onMover)
+  useEffect(() => {
+    onMoverRef.current = onMover
+  })
+
   const terminarArrastre = () => {
+    const a = arrastre.current
+    if (a?.temporizador) clearTimeout(a.temporizador)
+    arrastre.current = null
     setArrastrando(null)
     setColumnaSobre(null)
+    setFantasma(null)
   }
 
-  const soltar = (e, estado) => {
-    e.preventDefault()
-    const id = e.dataTransfer.getData('text/plain')
-    if (id) onMover(id, estado)
-    terminarArrastre()
+  const empezarArrastre = (a) => {
+    a.activo = true
+    setArrastrando({ id: a.id, estado: a.estado })
+    setFantasma({ x: a.x, y: a.y, titulo: a.titulo })
+    navigator.vibrate?.(15)
   }
+
+  const alPulsarTarjeta = (e, p) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return
+    if (e.target.closest('.dropdown')) return // el menú ⋯ no arrastra
+    const a = { id: p.id, estado: p.estado, titulo: p.titulo, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, tipo: e.pointerType, activo: false }
+    if (e.pointerType !== 'mouse') a.temporizador = setTimeout(() => empezarArrastre(a), 250)
+    arrastre.current = a
+  }
+
+  useEffect(() => {
+    const columnaEn = (x, y) => document.elementFromPoint(x, y)?.closest('[data-estado]')?.dataset.estado ?? null
+
+    const mover = (e) => {
+      const a = arrastre.current
+      if (!a) return
+      a.x = e.clientX
+      a.y = e.clientY
+      const distancia = Math.hypot(a.x - a.x0, a.y - a.y0)
+      if (!a.activo) {
+        if (distancia < 6) return
+        if (a.tipo === 'mouse') empezarArrastre(a)
+        else terminarArrastre() // con el dedo, moverse antes de tiempo es desplazar la página
+        return
+      }
+      setFantasma((f) => (f ? { ...f, x: a.x, y: a.y } : f))
+      setColumnaSobre(columnaEn(a.x, a.y))
+      // Desplazar el tablero si el puntero llega a un borde
+      const el = scrollRef.current
+      if (el) {
+        const r = el.getBoundingClientRect()
+        if (a.x > r.right - 60) el.scrollLeft += 18
+        else if (a.x < r.left + 60) el.scrollLeft -= 18
+      }
+    }
+
+    const soltar = (e) => {
+      const a = arrastre.current
+      if (!a) return
+      if (a.activo) {
+        const destino = columnaEn(e.clientX, e.clientY)
+        if (destino && destino !== a.estado) onMoverRef.current(a.id, destino)
+        // Que soltar no abra la tarea (el click llega justo después del pointerup, antes del setTimeout)
+        ignorarClick.current = true
+        setTimeout(() => (ignorarClick.current = false), 0)
+      }
+      terminarArrastre()
+    }
+
+    // Mientras se arrastra con el dedo, que la página no se desplace
+    const bloquearScroll = (e) => {
+      if (arrastre.current?.activo) e.preventDefault()
+    }
+
+    window.addEventListener('pointermove', mover)
+    window.addEventListener('pointerup', soltar)
+    window.addEventListener('pointercancel', terminarArrastre)
+    window.addEventListener('touchmove', bloquearScroll, { passive: false })
+    return () => {
+      window.removeEventListener('pointermove', mover)
+      window.removeEventListener('pointerup', soltar)
+      window.removeEventListener('pointercancel', terminarArrastre)
+      window.removeEventListener('touchmove', bloquearScroll)
+    }
+  }, [])
 
   return (
     <div className="flex flex-col h-full">
@@ -169,15 +248,7 @@ export default function Tablero({ proyectos, busqueda, onBusqueda, buscadorMovil
             return (
               <section
                 key={col.value}
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  e.dataTransfer.dropEffect = 'move'
-                  if (columnaSobre !== col.value) setColumnaSobre(col.value)
-                }}
-                onDragLeave={(e) => {
-                  if (!e.currentTarget.contains(e.relatedTarget)) setColumnaSobre(null)
-                }}
-                onDrop={(e) => soltar(e, col.value)}
+                data-estado={col.value}
                 className={`group/col relative flex flex-col w-[78vw] max-w-[290px] shrink-0 snap-start rounded-xl border border-base-300 bg-base-100/60 p-2 ${
                   arrastrando ? 'min-h-[calc(100vh-190px)]' : ''
                 }`}
@@ -213,16 +284,16 @@ export default function Tablero({ proyectos, busqueda, onBusqueda, buscadorMovil
                   {tarjetas.map((p) => (
                     <article
                       key={p.id}
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData('text/plain', p.id)
-                        e.dataTransfer.effectAllowed = 'move'
-                        // Se retrasa para no cambiar el DOM durante dragstart (cancelaría el arrastre)
-                        setTimeout(() => setArrastrando({ id: p.id, estado: p.estado }), 0)
+                      onPointerDown={(e) => alPulsarTarjeta(e, p)}
+                      onContextMenu={(e) => arrastre.current && e.preventDefault()}
+                      onClick={() => {
+                        if (ignorarClick.current) {
+                          ignorarClick.current = false
+                          return
+                        }
+                        onAbrir(p.id)
                       }}
-                      onDragEnd={terminarArrastre}
-                      onClick={() => onAbrir(p.id)}
-                      className={`group/card relative rounded-lg border border-base-300 bg-base-100 p-3.5 cursor-grab active:cursor-grabbing hover:border-base-content/20 hover:shadow-sm transition ${
+                      className={`group/card relative select-none [-webkit-touch-callout:none] rounded-lg border border-base-300 bg-base-100 p-3.5 cursor-grab active:cursor-grabbing hover:border-base-content/20 hover:shadow-sm transition ${
                         arrastrando?.id === p.id ? 'opacity-40 border-dashed' : ''
                       }`}
                     >
@@ -305,6 +376,15 @@ export default function Tablero({ proyectos, busqueda, onBusqueda, buscadorMovil
           })}
         </div>
       </div>
+
+      {fantasma && (
+        <div
+          className="fixed z-[60] pointer-events-none w-64 rounded-lg border border-primary/40 bg-base-100 px-3.5 py-3 text-sm font-medium shadow-xl rotate-2"
+          style={{ left: fantasma.x + 12, top: fantasma.y + 12 }}
+        >
+          {fantasma.titulo}
+        </div>
+      )}
 
       <Minimapa
         columnas={ESTADOS.map((col) => visibles.filter((p) => p.estado === col.value).length)}
