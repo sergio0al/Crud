@@ -37,7 +37,7 @@ const cerrarMenu = () => document.activeElement?.blur()
 // Texto corto para la tarjeta: sin marcas de formato ni las líneas de curso/entrega de Classroom
 const vistaPrevia = (texto) =>
   texto
-    .replace(/\*\*(Curso|Entrega):\*\*[^\n]*\n*/g, '')
+    .replace(/\*\*(Curso|Profesor|Entrega):\*\*[^\n]*\n*/g, '')
     .replace(/[*`#]/g, '')
     .trim()
 

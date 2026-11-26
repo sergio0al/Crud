@@ -37,7 +37,18 @@ const diasHasta = (iso) => Math.ceil((new Date(iso + 'T00:00:00') - new Date().s
 
 export function aProyecto(t) {
   const fecha = t.entrega || t.recibido.slice(0, 10)
-  const descripcion = [t.curso && `**Curso:** ${t.curso}`, t.entrega ? `**Entrega:** ${t.entrega}` : '', t.texto]
+  const fechaLegible = (iso) =>
+    new Date(iso + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
+  const descripcion = [
+    [
+      t.curso && `**Curso:** ${t.curso}`,
+      t.profesor && `**Profesor:** ${t.profesor}`,
+      t.entrega && `**Entrega:** ${fechaLegible(t.entrega)}`,
+    ]
+      .filter(Boolean)
+      .join('\n'),
+    t.texto,
+  ]
     .filter(Boolean)
     .join('\n\n')
   return {

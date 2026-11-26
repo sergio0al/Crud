@@ -12,8 +12,9 @@ const TOKEN = 'cambia-esta-clave';
 // Cuántos días hacia atrás buscar correos
 const DIAS = 60;
 
+// Acepta los avisos directos de Classroom y también los reenviados desde otra cuenta
 const BUSQUEDA =
-  'from:(classroom.google.com) (subject:"Nueva tarea" OR subject:"New assignment") newer_than:' + DIAS + 'd';
+  '(subject:"Nueva tarea" OR subject:"New assignment") classroom.google.com newer_than:' + DIAS + 'd';
 
 const MESES = {
   ene: 0, enero: 0, jan: 0, january: 0,
@@ -46,19 +47,23 @@ function leerTareas() {
   const tareas = [];
   GmailApp.search(BUSQUEDA, 0, 100).forEach(function (hilo) {
     hilo.getMessages().forEach(function (m) {
-      if (!/classroom\.google\.com/i.test(m.getFrom())) return;
       const asunto = m.getSubject();
       if (!/(nueva tarea|new assignment)/i.test(asunto)) return;
-
       const cuerpo = m.getPlainBody() || '';
+      // Debe venir de Classroom (directo) o contener el aviso de Classroom (reenviado)
+      if (!/classroom\.google\.com/i.test(m.getFrom()) && !/classroom\.google\.com/i.test(cuerpo)) return;
+
       const recibido = m.getDate();
+      const partes = analizarCuerpo(cuerpo);
       tareas.push({
         id: m.getId(),
-        titulo: extraerTitulo(asunto),
-        curso: extraerCurso(cuerpo),
+        // El asunto a veces llega recortado con "…": se prefiere el título del cuerpo
+        titulo: partes.titulo || extraerTitulo(asunto),
+        curso: partes.curso || extraerCurso(cuerpo),
+        profesor: partes.profesor,
         entrega: extraerEntrega(cuerpo, recibido),
         enlace: extraerEnlace(cuerpo),
-        texto: limpiar(cuerpo),
+        texto: partes.contenido,
         recibido: recibido.toISOString(),
       });
     });
@@ -67,6 +72,7 @@ function leerTareas() {
 }
 
 function extraerTitulo(asunto) {
+  asunto = asunto.replace(/^\s*((fwd?|rv|re|reenviado)\s*:\s*)+/i, ''); // quita "Fwd:", "RV:"...
   const entreComillas = asunto.match(/["“«](.+?)["”»]/);
   if (entreComillas) return entreComillas[1].trim();
   const trasDosPuntos = asunto.split(':').slice(1).join(':').trim();
@@ -78,9 +84,50 @@ function extraerCurso(cuerpo) {
   return m ? m[1].replace(/[.:]\s*$/, '').trim() : '';
 }
 
+/**
+ * Formato real de los avisos de Classroom (texto plano):
+ *   Ajustes de notificaciones <...>
+ *   M0612 Programació web 2627 DAW2 <...>      ← curso
+ *   Nueva tarea
+ *   La caja fuerte                             ← título completo
+ *   Fecha de entrega: 24 nov                   ← opcional
+ *   (texto de la tarea, opcional)
+ *   Ver detalles <...>
+ *   Publicado el 4:44 p. m., nov 16 (CET) por Carlos ...   ← profesor
+ */
+function analizarCuerpo(cuerpo) {
+  const lineas = cuerpo
+    .replace(/\r/g, '')
+    .split('\n')
+    .map(function (l) { return l.replace(/<https?:[^>]*>/g, '').replace(/\s*<\s*$/, '').replace(/\s+/g, ' ').trim(); })
+    .filter(function (l) { return l && l !== '<' && l !== '>'; });
+
+  const i = lineas.findIndex(function (l) { return /^(nueva tarea|new assignment)$/i.test(l); });
+  if (i === -1) return { titulo: '', curso: '', profesor: '', contenido: '' };
+
+  const curso = i > 0 && !/^(ajustes de notificaciones|notification settings)$/i.test(lineas[i - 1]) ? lineas[i - 1] : '';
+  const titulo = lineas[i + 1] || '';
+
+  const contenido = [];
+  let profesor = '';
+  for (let j = i + 2; j < lineas.length; j++) {
+    const l = lineas[j];
+    const publicado = l.match(/^(?:publicado|posted)\b.*?\b(?:por|by)\s+(.+)$/i);
+    if (publicado) { profesor = publicado[1].trim(); break; }
+    if (/^(ver detalles|view details|abrir|open)$/i.test(l)) continue;
+    if (/^(fecha de entrega|fecha límite|due)\b/i.test(l)) continue;
+    if (/^(google llc|si no quieres|if you don't want|recibes este|you received)/i.test(l)) break;
+    contenido.push(l);
+  }
+  return { titulo: titulo, curso: curso, profesor: profesor, contenido: contenido.join('\n').slice(0, 2000) };
+}
+
+/** Prefiere el enlace a la tarea ("Ver detalles") y descarta el de ajustes de notificaciones */
 function extraerEnlace(cuerpo) {
-  const m = cuerpo.match(/https:\/\/classroom\.google\.com\/[^\s<>)\]"]+/);
-  return m ? m[0] : '';
+  const enlaces = cuerpo.match(/https:\/\/classroom\.google\.com\/[^\s<>)\]"]+/g) || [];
+  const tarea = enlaces.find(function (u) { return /\/c\/[^/]+\/a\//.test(u) || /\/details/.test(u); });
+  const otro = enlaces.find(function (u) { return !/\/s\?|notification|settings/i.test(u); });
+  return tarea || otro || 'https://classroom.google.com/';
 }
 
 /** Busca "Fecha de entrega: 5 dic", "Entrega: 5 de diciembre de 2026", "Due: Dec 5"... y devuelve AAAA-MM-DD */
