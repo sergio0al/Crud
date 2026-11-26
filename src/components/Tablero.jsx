@@ -11,6 +11,7 @@ import {
   IconoMas,
   IconoOrden,
   IconoPrioridad,
+  IconoClassroom,
   IconoPuntos,
 } from './Iconos'
 
@@ -32,6 +33,13 @@ const formatearFecha = (iso) =>
   new Date(iso + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }).replace('.', '')
 
 const cerrarMenu = () => document.activeElement?.blur()
+
+// Texto corto para la tarjeta: sin marcas de formato ni las líneas de curso/entrega de Classroom
+const vistaPrevia = (texto) =>
+  texto
+    .replace(/\*\*(Curso|Entrega):\*\*[^\n]*\n*/g, '')
+    .replace(/[*`#]/g, '')
+    .trim()
 
 export default function Tablero({ proyectos, busqueda, onBusqueda, buscadorMovil, onMover, onAbrir, onNuevo, onEditar, onBorrar }) {
   const nombres = useMemo(() => Object.fromEntries(obtenerUsuarios().map((u) => [u.id, u.nombre])), [])
@@ -242,7 +250,14 @@ export default function Tablero({ proyectos, busqueda, onBusqueda, buscadorMovil
                         {p.titulo}
                       </h3>
                       {p.descripcion && (
-                        <p className="mt-1 text-xs text-base-content/60 line-clamp-2">{p.descripcion}</p>
+                        <p className="mt-1 text-xs text-base-content/60 line-clamp-2">{vistaPrevia(p.descripcion)}</p>
+                      )}
+
+                      {p.origen?.tipo === 'classroom' && (
+                        <span className="mt-2 inline-flex max-w-full items-center gap-1 rounded-md bg-success/10 px-1.5 py-0.5 text-[11px] font-medium text-success">
+                          <IconoClassroom className="size-3.5 shrink-0" />
+                          <span className="truncate">{p.origen.curso || 'Classroom'}</span>
+                        </span>
                       )}
 
                       <div className="mt-3 flex items-center gap-3 text-xs text-base-content/60">

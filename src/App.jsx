@@ -8,6 +8,8 @@ import Resumen from './components/Resumen'
 import Tablero from './components/Tablero'
 import ProyectoPanel from './components/ProyectoPanel'
 import Modal from './components/Modal'
+import ClassroomConfig from './components/ClassroomConfig'
+import { useClassroom } from './hooks/useClassroom'
 import { IconoBuscar, IconoMas } from './components/Iconos'
 
 export default function App() {
@@ -25,11 +27,14 @@ export default function App() {
 }
 
 function Escritorio({ usuario, onSalir }) {
-  const { proyectos, guardar, editar, moverA, borrar, comentar, borrarComentario } = useProyectos(usuario)
+  const { proyectos, guardar, importar, editar, moverA, borrar, comentar, borrarComentario } = useProyectos(usuario)
   const [vista, setVista] = useState('resumen')
   const [busqueda, setBusqueda] = useState('')
   const [panel, setPanel] = useState(null) // null | { id } | { nuevo: true, estado? }
   const [aBorrar, setABorrar] = useState(null)
+  const [configClassroom, setConfigClassroom] = useState(false)
+  const classroom = useClassroom(importar)
+  const estadoClassroom = !classroom.url ? 'desconectado' : classroom.error ? 'error' : 'conectado'
   const buscador = useRef(null)
   const buscadorMovil = useRef(null)
   const abierto = panel?.id ? proyectos.find((p) => p.id === panel.id) : null
@@ -51,7 +56,10 @@ function Escritorio({ usuario, onSalir }) {
 
   return (
     <div className="flex h-screen bg-base-200 text-base-content">
-      <Sidebar vista={vista} onVista={setVista} usuario={usuario} onSalir={onSalir} totalProyectos={proyectos.length} />
+      <Sidebar vista={vista} onVista={setVista} usuario={usuario} onSalir={onSalir} totalProyectos={proyectos.length}
+        onClassroom={() => setConfigClassroom(true)}
+        estadoClassroom={estadoClassroom}
+      />
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="flex items-center gap-3 h-16 px-4 md:px-6 border-b border-base-300 bg-base-100 shrink-0">
@@ -106,6 +114,7 @@ function Escritorio({ usuario, onSalir }) {
         }}
         usuario={usuario}
         onSalir={onSalir}
+        onClassroom={() => setConfigClassroom(true)}
       />
 
       {(abierto || panel?.nuevo) && (
@@ -127,6 +136,18 @@ function Escritorio({ usuario, onSalir }) {
             onCerrar={cerrarPanel}
           />
         </Modal>
+      )}
+
+      {configClassroom && (
+        <Modal ancho="max-w-xl" onCerrar={() => setConfigClassroom(false)}>
+          <ClassroomConfig classroom={classroom} onCerrar={() => setConfigClassroom(false)} />
+        </Modal>
+      )}
+
+      {classroom.aviso && (
+        <div className="toast toast-center md:toast-end bottom-20 md:bottom-4 z-[1000]">
+          <div className="alert bg-neutral text-neutral-content border-0 text-sm shadow-lg">{classroom.aviso}</div>
+        </div>
       )}
 
       {aBorrar && (

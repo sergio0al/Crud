@@ -1,8 +1,8 @@
 import { iniciales } from '../auth'
-import { IconoBuscar, IconoCasa, IconoMas, IconoSalir, IconoTablero } from './Iconos'
+import { IconoBuscar, IconoCasa, IconoClassroom, IconoMas, IconoSalir, IconoTablero } from './Iconos'
 
 // Barra de navegación inferior, solo visible en móvil
-export default function BarraMovil({ vista, onVista, onNuevo, onBuscar, usuario, onSalir }) {
+export default function BarraMovil({ vista, onVista, onNuevo, onBuscar, usuario, onSalir, onClassroom }) {
   return (
     <nav className="md:hidden fixed inset-x-0 bottom-0 z-40 grid grid-cols-5 h-16 border-t border-base-300 bg-base-100 pb-[env(safe-area-inset-bottom)]">
       <Boton activo={vista === 'resumen'} onClick={() => onVista('resumen')} Icono={IconoCasa} texto="Resumen" />
@@ -21,6 +21,11 @@ export default function BarraMovil({ vista, onVista, onNuevo, onBuscar, usuario,
           <li className="menu-title">
             <span className="text-base-content">{usuario.nombre}</span>
             <span className="font-normal truncate">{usuario.email}</span>
+          </li>
+          <li>
+            <button onClick={() => { document.activeElement?.blur(); onClassroom() }}>
+              <IconoClassroom className="size-4" /> Classroom
+            </button>
           </li>
           <li>
             <button onClick={onSalir}>

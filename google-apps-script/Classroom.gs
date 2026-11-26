@@ -1,0 +1,125 @@
+/**
+ * Lee los correos de Google Classroom de "Nueva tarea" de tu Gmail
+ * y los devuelve en JSON para que la app los convierta en proyectos.
+ *
+ * Instrucciones completas en CLASSROOM.md (raíz del proyecto).
+ */
+
+// ⚠️ Cambia esta clave por una tuya (letras y números, sin espacios).
+// La misma clave irá al final de la URL: ...?token=TU_CLAVE
+const TOKEN = 'cambia-esta-clave';
+
+// Cuántos días hacia atrás buscar correos
+const DIAS = 60;
+
+const BUSQUEDA =
+  'from:(classroom.google.com) (subject:"Nueva tarea" OR subject:"New assignment") newer_than:' + DIAS + 'd';
+
+const MESES = {
+  ene: 0, enero: 0, jan: 0, january: 0,
+  feb: 1, febrero: 1, february: 1,
+  mar: 2, marzo: 2, march: 2,
+  abr: 3, abril: 3, apr: 3, april: 3,
+  may: 4, mayo: 4,
+  jun: 5, junio: 5, june: 5,
+  jul: 6, julio: 6, july: 6,
+  ago: 7, agosto: 7, aug: 7, august: 7,
+  sep: 8, sept: 8, septiembre: 8, setiembre: 8, september: 8,
+  oct: 9, octubre: 9, october: 9,
+  nov: 10, noviembre: 10, november: 10,
+  dic: 11, diciembre: 11, dec: 11, december: 11,
+};
+
+function doGet(e) {
+  if (!e || !e.parameter || e.parameter.token !== TOKEN) {
+    return json({ error: 'No autorizado: revisa el token de la URL' });
+  }
+  return json({ tareas: leerTareas() });
+}
+
+/** Ejecuta esta función desde el editor para dar permisos y ver el resultado en el registro. */
+function probar() {
+  Logger.log(JSON.stringify(leerTareas(), null, 2));
+}
+
+function leerTareas() {
+  const tareas = [];
+  GmailApp.search(BUSQUEDA, 0, 100).forEach(function (hilo) {
+    hilo.getMessages().forEach(function (m) {
+      if (!/classroom\.google\.com/i.test(m.getFrom())) return;
+      const asunto = m.getSubject();
+      if (!/(nueva tarea|new assignment)/i.test(asunto)) return;
+
+      const cuerpo = m.getPlainBody() || '';
+      const recibido = m.getDate();
+      tareas.push({
+        id: m.getId(),
+        titulo: extraerTitulo(asunto),
+        curso: extraerCurso(cuerpo),
+        entrega: extraerEntrega(cuerpo, recibido),
+        enlace: extraerEnlace(cuerpo),
+        texto: limpiar(cuerpo),
+        recibido: recibido.toISOString(),
+      });
+    });
+  });
+  return tareas;
+}
+
+function extraerTitulo(asunto) {
+  const entreComillas = asunto.match(/["“«](.+?)["”»]/);
+  if (entreComillas) return entreComillas[1].trim();
+  const trasDosPuntos = asunto.split(':').slice(1).join(':').trim();
+  return trasDosPuntos || asunto.trim();
+}
+
+function extraerCurso(cuerpo) {
+  const m = cuerpo.match(/(?:nueva tarea en|new assignment in|publicó .*? en|posted .*? in)\s+([^\n]+)/i);
+  return m ? m[1].replace(/[.:]\s*$/, '').trim() : '';
+}
+
+function extraerEnlace(cuerpo) {
+  const m = cuerpo.match(/https:\/\/classroom\.google\.com\/[^\s<>)\]"]+/);
+  return m ? m[0] : '';
+}
+
+/** Busca "Fecha de entrega: 5 dic", "Entrega: 5 de diciembre de 2026", "Due: Dec 5"... y devuelve AAAA-MM-DD */
+function extraerEntrega(cuerpo, recibido) {
+  const lineas = cuerpo.matchAll(/(?:fecha de entrega|fecha límite|entrega|vence|due(?: date)?)\s*:?\s*([^\n]+)/gi);
+  for (const linea of lineas) {
+    const fecha = leerFecha(linea[1].toLowerCase(), recibido);
+    if (fecha) return fecha;
+  }
+  return null;
+}
+
+function leerFecha(texto, recibido) {
+  // "5 dic", "5 de diciembre de 2026"
+  let m = texto.match(/(\d{1,2})\s*(?:de\s+)?([a-záéíóú]+)\.?(?:\s*(?:de\s+)?(\d{4}))?/);
+  let dia, mes, anio;
+  if (m && MESES[m[2]] !== undefined) {
+    dia = +m[1]; mes = MESES[m[2]]; anio = m[3] && +m[3];
+  } else {
+    // "dec 5", "december 5, 2026"
+    m = texto.match(/([a-z]+)\.?\s+(\d{1,2})(?:,?\s*(\d{4}))?/);
+    if (!m || MESES[m[1]] === undefined) return null;
+    dia = +m[2]; mes = MESES[m[1]]; anio = m[3] && +m[3];
+  }
+
+  if (!anio) {
+    anio = recibido.getFullYear();
+    // Si la fecha queda muy en el pasado respecto al correo, es del año siguiente
+    if (new Date(anio, mes, dia) < new Date(recibido.getTime() - 30 * 86400000)) anio++;
+  }
+  return anio + '-' + String(mes + 1).padStart(2, '0') + '-' + String(dia).padStart(2, '0');
+}
+
+function limpiar(cuerpo) {
+  let texto = cuerpo.split(/\n\s*(?:Google LLC|Si no quieres recibir|If you don't want|Recibes este correo|You received this)/i)[0];
+  texto = texto.replace(/https?:\/\/\S+/g, '').replace(/\n{3,}/g, '\n\n').trim();
+  return texto.slice(0, 2000);
+}
+
+function json(datos) {
+  return ContentService.createTextOutput(JSON.stringify(datos)).setMimeType(ContentService.MimeType.JSON);
+}

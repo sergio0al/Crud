@@ -28,6 +28,23 @@ export function useProyectos(usuario) {
     setGuardados([...proyectos, { ...datos, id: crypto.randomUUID(), numero, comentarios: [], creado: Date.now() }])
   }
 
+  // Añade varios proyectos de golpe (p. ej. importados de Classroom), usando el estado más reciente
+  const importar = (lista) => {
+    if (!lista.length) return
+    setGuardados((previos) => {
+      let numero = Math.max(0, ...previos.map((p) => p.numero ?? 0))
+      const base = previos.map((p) => (p.numero == null ? { ...p, numero: ++numero } : p))
+      const nuevos = lista.map((datos) => ({
+        ...datos,
+        id: crypto.randomUUID(),
+        numero: ++numero,
+        comentarios: [],
+        creado: Date.now(),
+      }))
+      return [...base, ...nuevos]
+    })
+  }
+
   const editar = (id, campos) => actualizar(id, () => campos)
 
   const moverA = (id, estado) => {
@@ -48,5 +65,5 @@ export function useProyectos(usuario) {
   const borrarComentario = (id, comentarioId) =>
     actualizar(id, (p) => ({ comentarios: (p.comentarios ?? []).filter((c) => c.id !== comentarioId) }))
 
-  return { proyectos, guardar, editar, moverA, borrar, comentar, borrarComentario }
+  return { proyectos, guardar, importar, editar, moverA, borrar, comentar, borrarComentario }
 }

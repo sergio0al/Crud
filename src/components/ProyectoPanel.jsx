@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { ESTADOS, PRIORIDADES, findOption } from '../constants'
 import { iniciales, obtenerUsuarios } from '../auth'
 import Markdown from './Markdown'
-import { IconoCerrar, IconoPrioridad, IconoPuntos, IconoTarea } from './Iconos'
+import { IconoCerrar, IconoClassroom, IconoEnlace, IconoPrioridad, IconoPuntos, IconoTarea } from './Iconos'
+import { CREADOR_CLASSROOM } from '../classroom'
 
 const ESTILO_ESTADO = {
   por_hacer: 'bg-base-200 text-base-content border-base-300 hover:bg-base-300',
@@ -92,6 +93,20 @@ export default function ProyectoPanel({
         <div className="md:overflow-y-auto px-5 md:pl-8 md:pr-10 pb-8 space-y-6">
           <Titulo creando={creando} valor={datos.titulo} onCambiar={(titulo) => cambiar({ titulo })} />
 
+          {datos.origen?.tipo === 'classroom' && (
+            <div className="flex flex-wrap items-center gap-2 -mt-3">
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-success/10 px-2 py-1 text-xs font-medium text-success">
+                <IconoClassroom className="size-4" />
+                Google Classroom{datos.origen.curso && ` · ${datos.origen.curso}`}
+              </span>
+              {datos.origen.enlace && (
+                <a href={datos.origen.enlace} target="_blank" rel="noreferrer" className="btn btn-xs btn-outline border-base-300 font-normal">
+                  <IconoEnlace className="size-3.5" /> Abrir en Classroom
+                </a>
+              )}
+            </div>
+          )}
+
           {error && <div role="alert" className="alert alert-error alert-soft py-2 text-sm">{error}</div>}
 
           <Seccion titulo="Descripción">
@@ -172,8 +187,19 @@ export default function ProyectoPanel({
 
                 <Fila etiqueta="Informador">
                   <span className="flex items-center gap-2 py-1">
-                    <Avatar nombre={creando ? usuario.nombre : nombreDe(datos.creadorId) ?? '—'} pequeno />
-                    {creando ? usuario.nombre : nombreDe(datos.creadorId) ?? 'Desconocido'}
+                    {datos.creadorId === CREADOR_CLASSROOM ? (
+                      <>
+                        <span className="grid place-items-center size-6 rounded-full bg-success/15 text-success">
+                          <IconoClassroom className="size-3.5" />
+                        </span>
+                        Google Classroom
+                      </>
+                    ) : (
+                      <>
+                        <Avatar nombre={creando ? usuario.nombre : nombreDe(datos.creadorId) ?? '—'} pequeno />
+                        {creando ? usuario.nombre : nombreDe(datos.creadorId) ?? 'Desconocido'}
+                      </>
+                    )}
                   </span>
                 </Fila>
               </dl>
