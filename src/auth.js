@@ -57,3 +57,17 @@ export const iniciales = (nombre = '') =>
     .slice(0, 2)
     .map((p) => p[0].toUpperCase())
     .join('')
+
+// Id anónimo fijo por persona (p. ej. "anonimo1234"), para comentar sin mostrar el nombre
+const CLAVE_ANONIMOS = 'anonimos'
+
+export function idAnonimo(usuario) {
+  const anonimos = leer(CLAVE_ANONIMOS, {})
+  if (anonimos[usuario.id]) return anonimos[usuario.id]
+  const usados = new Set(Object.values(anonimos))
+  let id
+  do id = `anonimo${Math.floor(1000 + Math.random() * 9000)}`
+  while (usados.has(id))
+  localStorage.setItem(CLAVE_ANONIMOS, JSON.stringify({ ...anonimos, [usuario.id]: id }))
+  return id
+}

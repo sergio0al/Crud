@@ -131,7 +131,7 @@ function Escritorio({ usuario, onSalir }) {
             }}
             onActualizar={(campos) => editar(abierto.id, campos)}
             onBorrar={() => setABorrar(abierto)}
-            onComentar={(texto) => comentar(abierto.id, texto)}
+            onComentar={(texto, anonimo) => comentar(abierto.id, texto, anonimo)}
             onBorrarComentario={(cid) => borrarComentario(abierto.id, cid)}
             onCerrar={cerrarPanel}
           />

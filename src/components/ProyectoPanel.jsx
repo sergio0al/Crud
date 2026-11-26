@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { ESTADOS, PRIORIDADES, findOption } from '../constants'
-import { iniciales, obtenerUsuarios } from '../auth'
+import { idAnonimo, iniciales, obtenerUsuarios } from '../auth'
 import Markdown from './Markdown'
 import { IconoCerrar, IconoClassroom, IconoEnlace, IconoPrioridad, IconoPuntos, IconoTarea } from './Iconos'
 import { CREADOR_CLASSROOM } from '../classroom'
@@ -369,46 +369,58 @@ function SelectorEstado({ estado, onCambiar }) {
 
 function Comentarios({ comentarios, usuario, onComentar, onBorrar }) {
   const [texto, setTexto] = useState('')
+  const [anonimo, setAnonimo] = useState(false)
+  const alias = useMemo(() => idAnonimo(usuario), [usuario])
   const enviar = (e) => {
     e.preventDefault()
     if (!texto.trim()) return
-    onComentar(texto.trim())
+    onComentar(texto.trim(), anonimo)
     setTexto('')
   }
 
   return (
     <div>
       <form onSubmit={enviar} className="flex gap-3 items-start mb-6">
-        <Avatar nombre={usuario.nombre} />
+        {anonimo ? <AvatarAnonimo /> : <Avatar nombre={usuario.nombre} />}
         <div className="flex-1 rounded-lg border border-base-300 focus-within:border-info transition">
           <textarea
             className="w-full resize-none bg-transparent px-3 pt-2.5 text-sm outline-none"
             rows={2}
-            placeholder="Añade un comentario..."
+            placeholder={anonimo ? `Comentar como ${alias}...` : 'Añade un comentario...'}
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) enviar(e)
             }}
           />
-          <div className="flex items-center justify-between px-2 pb-2">
-            <span className="text-[11px] text-base-content/40 pl-1">Ctrl + Enter para enviar</span>
-            <button type="submit" className="btn btn-xs btn-primary" disabled={!texto.trim()}>Comentar</button>
+          <div className="flex flex-wrap items-center justify-between gap-2 px-2 pb-2">
+            <label className="flex items-center gap-1.5 pl-1 text-xs text-base-content/70 cursor-pointer">
+              <input type="checkbox" className="toggle toggle-xs" checked={anonimo} onChange={(e) => setAnonimo(e.target.checked)} />
+              Anónimo{anonimo && <span className="text-base-content/50">· {alias}</span>}
+            </label>
+            <div className="flex items-center gap-2">
+              <span className="hidden sm:inline text-[11px] text-base-content/40">Ctrl + Enter para enviar</span>
+              <button type="submit" className="btn btn-xs btn-primary" disabled={!texto.trim()}>Comentar</button>
+            </div>
           </div>
+          {anonimo && (
+            <p className="px-3 pb-2 text-[11px] text-warning">Los comentarios anónimos no se pueden editar ni eliminar.</p>
+          )}
         </div>
       </form>
 
       <ul className="space-y-5">
         {[...comentarios].reverse().map((c) => (
           <li key={c.id} className="flex gap-3">
-            <Avatar nombre={c.autorNombre} />
+            {c.anonimo ? <AvatarAnonimo /> : <Avatar nombre={c.autorNombre} />}
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-2 text-sm">
                 <span className="font-medium">{c.autorNombre}</span>
+                {c.anonimo && <span className="badge badge-xs badge-ghost">Anónimo</span>}
                 <span className="text-xs text-base-content/50">{formatearMomento(c.fecha)}</span>
               </div>
               <p className="text-sm whitespace-pre-wrap break-words mt-1">{c.texto}</p>
-              {c.autorId === usuario.id && (
+              {!c.anonimo && c.autorId === usuario.id && (
                 <button className="text-xs text-base-content/40 hover:text-error mt-1" onClick={() => onBorrar(c.id)}>
                   Eliminar
                 </button>
@@ -461,6 +473,17 @@ function Avatar({ nombre = '', pequeno }) {
       }`}
     >
       {iniciales(nombre) || '?'}
+    </span>
+  )
+}
+
+function AvatarAnonimo() {
+  return (
+    <span className="grid place-items-center shrink-0 size-8 rounded-full bg-base-300 text-base-content/60">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="size-4">
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 21a8 8 0 0 1 16 0" />
+      </svg>
     </span>
   )
 }

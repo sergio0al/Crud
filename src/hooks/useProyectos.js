@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useLocalStorage } from './useLocalStorage'
 import { migrarEstado } from '../constants'
+import { idAnonimo } from '../auth'
 
 export const PREFIJO = 'PRJ'
 export const clave = (p) => `${PREFIJO}-${p.numero}`
@@ -54,16 +55,21 @@ export function useProyectos(usuario) {
 
   const borrar = (id) => setGuardados(proyectos.filter((p) => p.id !== id))
 
-  const comentar = (id, texto) =>
+  // Los comentarios anónimos no guardan quién es el autor real y no se pueden editar ni borrar
+  const comentar = (id, texto, anonimo = false) =>
     actualizar(id, (p) => ({
       comentarios: [
         ...(p.comentarios ?? []),
-        { id: crypto.randomUUID(), autorId: usuario.id, autorNombre: usuario.nombre, texto, fecha: Date.now() },
+        anonimo
+          ? { id: crypto.randomUUID(), anonimo: true, autorNombre: idAnonimo(usuario), texto, fecha: Date.now() }
+          : { id: crypto.randomUUID(), autorId: usuario.id, autorNombre: usuario.nombre, texto, fecha: Date.now() },
       ],
     }))
 
   const borrarComentario = (id, comentarioId) =>
-    actualizar(id, (p) => ({ comentarios: (p.comentarios ?? []).filter((c) => c.id !== comentarioId) }))
+    actualizar(id, (p) => ({
+      comentarios: (p.comentarios ?? []).filter((c) => c.id !== comentarioId || c.anonimo),
+    }))
 
   return { proyectos, guardar, importar, editar, moverA, borrar, comentar, borrarComentario }
 }
