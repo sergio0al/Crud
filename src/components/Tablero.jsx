@@ -101,11 +101,11 @@ export default function Tablero({ proyectos, busqueda, onBusqueda, buscadorMovil
         </label>
 
         <div className="dropdown">
-          <button tabIndex={0} className="btn btn-sm bg-base-100 border-base-300 font-normal">
+          <div tabIndex={0} role="button" className="btn btn-sm bg-base-100 border-base-300 font-normal">
             <IconoFiltro className="size-4" />
             Filtro
             {filtroPrioridad !== 'todas' && <span className="badge badge-xs badge-primary">1</span>}
-          </button>
+          </div>
           <ul tabIndex={0} className="dropdown-content menu menu-sm bg-base-100 border border-base-300 rounded-box shadow-lg w-48 z-30 mt-1">
             <li className="menu-title">Prioridad</li>
             {[{ value: 'todas', label: 'Todas' }, ...PRIORIDADES].map((o) => (
@@ -126,10 +126,10 @@ export default function Tablero({ proyectos, busqueda, onBusqueda, buscadorMovil
         </div>
 
         <div className="dropdown">
-          <button tabIndex={0} className="btn btn-sm bg-base-100 border-base-300 font-normal">
+          <div tabIndex={0} role="button" className="btn btn-sm bg-base-100 border-base-300 font-normal">
             <IconoOrden className="size-4" />
             Ordenar: {ORDENES.find((o) => o.value === orden).label}
-          </button>
+          </div>
           <ul tabIndex={0} className="dropdown-content menu menu-sm bg-base-100 border border-base-300 rounded-box shadow-lg w-40 z-30 mt-1">
             {ORDENES.map((o) => (
               <li key={o.value}>
@@ -229,14 +229,24 @@ export default function Tablero({ proyectos, busqueda, onBusqueda, buscadorMovil
                       {/* Menú de acciones */}
                       <div
                         onClick={(e) => e.stopPropagation()}
-                        className="dropdown dropdown-end absolute top-2 right-2 opacity-0 group-hover/card:opacity-100 focus-within:opacity-100"
+                        className="dropdown dropdown-end absolute top-2 right-2 md:opacity-0 md:group-hover/card:opacity-100 focus-within:opacity-100"
                       >
-                        <button tabIndex={0} className="btn btn-xs btn-square btn-ghost bg-base-100" title="Acciones">
+                        {/* div con tabIndex (no <button>) para que el menú también se abra en Safari de iPhone */}
+                        <div tabIndex={0} role="button" className="btn btn-xs btn-square btn-ghost bg-base-100" title="Acciones" aria-label="Acciones">
                           <IconoPuntos className="size-4" />
-                        </button>
-                        <ul tabIndex={0} className="dropdown-content menu menu-sm bg-base-100 border border-base-300 rounded-box shadow-lg w-36 z-30">
-                          <li>
-                            <button onClick={() => { cerrarMenu(); onEditar(p) }}>Editar</button>
+                        </div>
+                        <ul tabIndex={0} className="dropdown-content menu menu-sm bg-base-100 border border-base-300 rounded-box shadow-lg w-44 z-30">
+                          <li className="menu-title">Mover a</li>
+                          {ESTADOS.filter((e) => e.value !== p.estado).map((e) => (
+                            <li key={e.value}>
+                              <button onClick={() => { cerrarMenu(); onMover(p.id, e.value) }}>
+                                <span className={`size-2 rounded-full ${PUNTO[e.value]}`} />
+                                {e.label}
+                              </button>
+                            </li>
+                          ))}
+                          <li className="mt-1 border-t border-base-300 pt-1">
+                            <button onClick={() => { cerrarMenu(); onEditar(p) }}>Abrir</button>
                           </li>
                           <li>
                             <button className="text-error" onClick={() => { cerrarMenu(); onBorrar(p) }}>Eliminar</button>

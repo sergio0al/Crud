@@ -69,9 +69,9 @@ export default function ProyectoPanel({
         <div className="flex items-center gap-1.5">
           {!creando && (
             <div className="dropdown dropdown-end">
-              <button tabIndex={0} className="btn btn-sm btn-square btn-outline border-base-300" aria-label="Más acciones">
+              <div tabIndex={0} role="button" className="btn btn-sm btn-square btn-outline border-base-300" aria-label="Más acciones">
                 <IconoPuntos className="size-4" />
-              </button>
+              </div>
               <ul tabIndex={0} className="dropdown-content menu menu-sm bg-base-100 border border-base-300 rounded-box shadow-lg w-40 z-30 mt-1">
                 <li>
                   <button className="text-error" onClick={() => { cerrarMenu(); onBorrar() }}>Eliminar proyecto</button>
@@ -321,10 +321,10 @@ function SelectorEstado({ estado, onCambiar }) {
   const actual = findOption(ESTADOS, estado)
   return (
     <div className="dropdown">
-      <button tabIndex={0} className={`btn btn-sm border font-medium ${ESTILO_ESTADO[actual.value]}`}>
+      <div tabIndex={0} role="button" className={`btn btn-sm border font-medium ${ESTILO_ESTADO[actual.value]}`}>
         {actual.label}
         <Flecha abierta className="size-3.5" />
-      </button>
+      </div>
       <ul tabIndex={0} className="dropdown-content menu menu-sm bg-base-100 border border-base-300 rounded-box shadow-lg w-48 z-30 mt-1">
         {ESTADOS.map((e) => (
           <li key={e.value}>
