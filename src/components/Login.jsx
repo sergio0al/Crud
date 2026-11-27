@@ -25,9 +25,10 @@ export default function Login({ onEntrar }) {
   return (
     <div className="min-h-screen bg-base-200 grid place-items-center p-4">
       <div className="w-full max-w-sm">
-        <div className="flex items-center justify-center gap-2 mb-6">
-          <IconoLogo className="w-9" />
-          <h1 className="text-2xl font-semibold">Proyectos</h1>
+        <div className="flex flex-col items-center gap-2 mb-6">
+          <IconoLogo className="size-12" />
+          <h1 className="text-2xl font-bold tracking-tight">Sarflow</h1>
+          <p className="-mt-1.5 text-sm text-base-content/60">Tus tareas, en orden · by Sergio Alonso Rojals</p>
         </div>
 
         <form onSubmit={enviar} className="card bg-base-100 border border-base-300">

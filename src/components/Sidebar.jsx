@@ -10,10 +10,10 @@ export default function Sidebar({ vista, onVista, usuario, onSalir, totalProyect
   return (
     <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-base-300 bg-base-100">
       <div className="flex items-center gap-3 h-16 px-5">
-        <IconoLogo className="w-7 shrink-0" />
+        <IconoLogo className="size-8 shrink-0" />
         <div className="hidden md:block leading-tight">
-          <p className="text-sm font-semibold">Proyectos</p>
-          <p className="text-xs text-base-content/60">Gestión</p>
+          <p className="text-[15px] font-bold tracking-tight">Sarflow</p>
+          <p className="text-xs text-base-content/60">by Sergio Alonso</p>
         </div>
       </div>
 

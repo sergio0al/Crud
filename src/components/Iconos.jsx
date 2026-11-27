@@ -94,8 +94,17 @@ export const IconoFlecha = (p) => (
   <svg viewBox="0 0 24 24" {...base} {...p}><path d="M5 12h14M13 6l6 6-6 6" /></svg>
 )
 
+// Logo de Sarflow: columnas de tablero que crecen y un check encima (usa el color principal del tema)
 export const IconoLogo = (p) => (
-  <svg viewBox="0 0 32 16" {...base} strokeWidth={2} {...p}><circle cx="5" cy="8" r="3.5" /><circle cx="27" cy="8" r="3.5" /><path d="M8.5 8h15" /></svg>
+  <svg viewBox="0 0 32 32" aria-hidden="true" {...p}>
+    <rect width="32" height="32" rx="9" fill="var(--color-primary)" />
+    <g fill="var(--color-primary-content)" opacity=".3">
+      <rect x="7" y="18" width="4.6" height="7" rx="2.3" />
+      <rect x="13.7" y="14" width="4.6" height="11" rx="2.3" />
+      <rect x="20.4" y="10" width="4.6" height="15" rx="2.3" />
+    </g>
+    <path d="M8.5 15.5 13.5 20 24 8.5" fill="none" stroke="var(--color-primary-content)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
 )
 
 export const IconoMoodle = (p) => (
