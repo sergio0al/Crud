@@ -17,7 +17,6 @@ import { supabase } from './supabase'
 import { aplicarTema } from './tema'
 import { listarAsignaturas } from './asignaturas'
 import { useTableros } from './hooks/useTableros'
-import { useMicrosoft } from './microsoft'
 import { CabeceraTabla, ModalCompartir, ModalConfirmarTabla, ModalNombreTabla } from './components/TablasCompartidas'
 
 export default function App() {
@@ -106,8 +105,7 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
   const integraciones = [classroom, moodle]
   const [configIntegracion, setConfigIntegracion] = useState(null) // null | 'classroom' | 'moodle'
   const integracionAbierta = integraciones.find((i) => i.clave === configIntegracion)
-  const microsoft = useMicrosoft() // Office 365: documentos de Word
-  const aviso = microsoft.aviso ?? integraciones.find((i) => i.aviso)?.aviso
+  const aviso = integraciones.find((i) => i.aviso)?.aviso
   const buscador = useRef(null)
   const buscadorMovil = useRef(null)
   const abierto = panel?.id ? proyectos.find((p) => p.id === panel.id) : null
@@ -203,7 +201,7 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
           ) : vista === 'usuarios' ? (
             <Usuarios usuario={usuario} />
           ) : vista === 'configuracion' ? (
-            <Configuracion usuario={usuario} onActualizarUsuario={onActualizarUsuario} integraciones={integraciones} onIntegracion={setConfigIntegracion} microsoft={microsoft} />
+            <Configuracion usuario={usuario} onActualizarUsuario={onActualizarUsuario} integraciones={integraciones} onIntegracion={setConfigIntegracion} />
           ) : vista === 'resumen' ? (
             <Resumen proyectos={personales} onAbrir={(id) => setPanel({ id })} onIrTablero={() => setVista('tablero')} />
           ) : (
@@ -295,7 +293,6 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
             usuario={usuario}
             asignaturas={listarAsignaturas(proyectos).map((a) => a.nombre)}
             classroomConectado={classroom.conectado}
-            microsoft={microsoft}
             onCrear={(datos) => {
               guardar({ ...datos, tablero_id: panel.tablero_id ?? null })
               cerrarPanel()

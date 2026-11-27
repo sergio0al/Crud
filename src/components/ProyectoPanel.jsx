@@ -2,8 +2,7 @@ import { useState } from 'react'
 import { ESTADOS, PRIORIDADES, findOption } from '../constants'
 import { iniciales } from '../auth'
 import Markdown from './Markdown'
-import { IconoCerrar, IconoMas, IconoPrioridad, IconoPuntos, IconoTarea, IconoWord } from './Iconos'
-import { crearDocumentoWord } from '../microsoft'
+import { IconoCerrar, IconoMas, IconoPrioridad, IconoPuntos, IconoTarea } from './Iconos'
 import { crearDocumento, integracionDe } from '../integraciones'
 import { asignaturaDe, colorAsignatura } from '../asignaturas'
 
@@ -42,7 +41,6 @@ export default function ProyectoPanel({
   usuario,
   asignaturas = [],
   classroomConectado,
-  microsoft,
   onCrear,
   onActualizar,
   onBorrar,
@@ -205,23 +203,7 @@ export default function ProyectoPanel({
           {!creando && (
             <div className="space-y-2">
               <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-base-content/50">Enlaces</h3>
-              <TarjetaDocumento
-                tipo="google"
-                proyecto={proyecto}
-                enlace={proyecto.documento}
-                disponible={classroomConectado}
-                crear={crearDocumento}
-                onGuardar={(documento) => onActualizar({ documento })}
-              />
-              <TarjetaDocumento
-                tipo="word"
-                proyecto={proyecto}
-                enlace={proyecto.documento_word}
-                disponible={microsoft?.conectado}
-                crear={crearDocumentoWord}
-                onGuardar={(documento_word) => onActualizar({ documento_word })}
-                onConectar={microsoft && !microsoft.comprobando ? microsoft.conectar : undefined}
-              />
+              <TarjetaDocumento proyecto={proyecto} disponible={classroomConectado} onGuardar={(documento) => onActualizar({ documento })} />
               {origen && datos.origen.enlace && (
                 <TarjetaEnlace
                   href={datos.origen.enlace}
@@ -404,57 +386,29 @@ function TarjetaEnlace({ href, icono, colorIcono, titulo, subtitulo }) {
   )
 }
 
-// Documento de la tarea (Google o Word): la primera vez se crea y después siempre abre el mismo
-const DOCUMENTOS = {
-  google: {
-    Icono: IconoDocs,
-    fondo: 'bg-[#4285F4]/10',
-    texto: 'text-[#4285F4]',
-    titulo: 'Documento de Google',
-    abrir: 'Abrir en Google Docs',
-    crear: 'Crear documento de Google',
-    destino: 'Se guarda en tu Drive, carpeta Proyectos',
-    sinConexion: 'Conecta Classroom para usarlo',
-  },
-  word: {
-    Icono: IconoWord,
-    fondo: 'bg-[#185ABD]/10',
-    texto: 'text-[#185ABD]',
-    titulo: 'Documento de Word',
-    abrir: 'Abrir en Word (Office 365)',
-    crear: 'Crear documento de Word',
-    destino: 'Se guarda en tu OneDrive, carpeta Proyectos',
-    sinConexion: 'Conecta tu cuenta de Microsoft (cole o personal)',
-  },
-}
-
-function TarjetaDocumento({ tipo, proyecto, enlace, disponible, crear: crearEn, onGuardar, onConectar }) {
+// Google Doc de la tarea: la primera vez se crea (con el script de Classroom) y después siempre abre el mismo
+function TarjetaDocumento({ proyecto, disponible, onGuardar }) {
   const [creando, setCreando] = useState(false)
   const [error, setError] = useState('')
-  const d = DOCUMENTOS[tipo]
 
-  if (enlace)
-    return <TarjetaEnlace href={enlace} icono={<d.Icono />} colorIcono={d.fondo} titulo={d.titulo} subtitulo={d.abrir} />
+  if (proyecto.documento)
+    return (
+      <TarjetaEnlace
+        href={proyecto.documento}
+        icono={<IconoDocs />}
+        colorIcono="bg-[#4285F4]/10"
+        titulo="Documento de Google"
+        subtitulo="Abrir en Google Docs"
+      />
+    )
 
   const crear = async () => {
     setError('')
-    if (!disponible) {
-      // Word sin conectar: lleva a iniciar sesión con Microsoft
-      if (!onConectar) return
-      setCreando(true)
-      try {
-        await onConectar()
-      } catch (err) {
-        setError(err.message)
-        setCreando(false)
-      }
-      return
-    }
     setCreando(true)
     // Se abre la pestaña ya (con el clic) para que el navegador no la bloquee, y luego se le pone el enlace
     const ventana = window.open('', '_blank')
     try {
-      const url = await crearEn({ titulo: proyecto.titulo, asignatura: asignaturaDe(proyecto), fecha: proyecto.fecha })
+      const url = await crearDocumento({ titulo: proyecto.titulo, asignatura: asignaturaDe(proyecto), fecha: proyecto.fecha })
       onGuardar(url)
       if (ventana) ventana.location.href = url
     } catch (err) {
@@ -465,23 +419,22 @@ function TarjetaDocumento({ tipo, proyecto, enlace, disponible, crear: crearEn, 
     }
   }
 
-  const conectable = !disponible && onConectar
   return (
     <div>
       <button
         className={`${CLASE_TARJETA} border-dashed`}
-        disabled={(!disponible && !conectable) || creando}
-        title={disponible ? `${d.crear} para esta tarea` : d.sinConexion}
+        disabled={!disponible || creando}
+        title={disponible ? 'Crea un documento de Google para esta tarea' : 'Conecta Classroom para poder crear documentos'}
         onClick={crear}
       >
-        <span className={`grid place-items-center size-10 shrink-0 rounded-lg ${d.fondo}`}>
-          {creando ? <span className={`loading loading-spinner loading-sm ${d.texto}`} /> : <d.Icono />}
+        <span className="grid place-items-center size-10 shrink-0 rounded-lg bg-[#4285F4]/10">
+          {creando ? <span className="loading loading-spinner loading-sm text-[#4285F4]" /> : <IconoDocs />}
         </span>
         <span className="flex-1 min-w-0">
-          <span className="block text-sm font-medium">
-            {creando ? (disponible ? 'Creando documento…' : 'Abriendo Microsoft…') : conectable ? 'Conectar Microsoft para Word' : d.crear}
+          <span className="block text-sm font-medium">{creando ? 'Creando documento…' : 'Crear documento de Google'}</span>
+          <span className="block truncate text-xs text-base-content/60">
+            {disponible ? 'Se guarda en tu Drive, carpeta Proyectos' : 'Conecta Classroom para usarlo'}
           </span>
-          <span className="block truncate text-xs text-base-content/60">{disponible ? d.destino : d.sinConexion}</span>
         </span>
         {!creando && <IconoMas className="size-4 shrink-0 text-base-content/30 group-hover:text-base-content/70 transition" />}
       </button>

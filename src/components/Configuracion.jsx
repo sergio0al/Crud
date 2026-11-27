@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { COLORES, TEMA_INICIAL, cargarTema, esHex, guardarTema } from '../tema'
 import { actualizarPerfil } from '../auth'
-import { IconoCheck, IconoPrioridad, IconoWord } from './Iconos'
+import { IconoCheck, IconoPrioridad } from './Iconos'
 
 const MODOS = [
   { value: 'claro', label: 'Claro' },
@@ -15,7 +15,7 @@ const OPCIONES_ESQUINAS = [
   { value: 'redondas', label: 'Redondas', clase: 'rounded-2xl' },
 ]
 
-export default function Configuracion({ usuario, onActualizarUsuario, integraciones, onIntegracion, microsoft }) {
+export default function Configuracion({ usuario, onActualizarUsuario, integraciones, onIntegracion }) {
   const [tema, setTema] = useState(cargarTema)
   const [hex, setHex] = useState(tema.color ?? '')
 
@@ -158,8 +158,6 @@ export default function Configuracion({ usuario, onActualizarUsuario, integracio
         </Tarjeta>
       ))}
 
-      {microsoft && <TarjetaMicrosoft microsoft={microsoft} />}
-
       <div className="flex justify-end">
         <button
           className="btn btn-sm btn-ghost"
@@ -172,47 +170,6 @@ export default function Configuracion({ usuario, onActualizarUsuario, integracio
         </button>
       </div>
     </div>
-  )
-}
-
-// Office 365: vale con la cuenta del cole o con una personal (outlook, hotmail…)
-function TarjetaMicrosoft({ microsoft }) {
-  const [ocupado, setOcupado] = useState(false)
-  const [error, setError] = useState('')
-  const hacer = (accion) => async () => {
-    setError('')
-    setOcupado(true)
-    try {
-      await accion()
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setOcupado(false)
-    }
-  }
-  return (
-    <Tarjeta titulo="Microsoft 365" descripcion="Crea documentos de Word para tus tareas en OneDrive. Cuenta del cole o personal.">
-      <div className="flex flex-wrap items-center gap-3">
-        <span className="grid place-items-center size-10 rounded-lg bg-[#185ABD]/10">
-          <IconoWord />
-        </span>
-        <span className="flex items-center gap-2 text-sm flex-1 min-w-0">
-          <span className={`size-2 shrink-0 rounded-full ${microsoft.conectado ? 'bg-success' : 'bg-base-content/20'}`} />
-          <span className="truncate">
-            {microsoft.comprobando ? 'Comprobando…' : microsoft.conectado ? `Conectado${microsoft.cuenta ? ` · ${microsoft.cuenta}` : ''}` : 'Sin conectar'}
-          </span>
-        </span>
-        {microsoft.conectado ? (
-          <button className="btn btn-sm" disabled={ocupado} onClick={hacer(microsoft.quitar)}>Desconectar</button>
-        ) : (
-          <button className="btn btn-sm" disabled={ocupado || microsoft.comprobando} onClick={hacer(microsoft.conectar)}>
-            {ocupado && <span className="loading loading-spinner loading-xs" />}
-            Conectar
-          </button>
-        )}
-      </div>
-      {error && <p className="mt-2 text-xs text-error">{error}</p>}
-    </Tarjeta>
   )
 }
 
