@@ -115,6 +115,16 @@ export const IconoClassroom = (p) => (
   <svg viewBox="0 0 24 24" {...base} strokeWidth={1.7} {...p}><rect x="3" y="4" width="18" height="13" rx="2" /><circle cx="12" cy="9.5" r="2" /><path d="M8.5 14.5a3.5 3.5 0 0 1 7 0M8 21h8M12 17v4" /></svg>
 )
 
+// Icono de Word (hoja azul con una W), a color
+export const IconoWord = ({ className = 'size-6' }) => (
+  <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+    <path d="M14.5 2H8.5A1.5 1.5 0 0 0 7 3.5v17A1.5 1.5 0 0 0 8.5 22h11a1.5 1.5 0 0 0 1.5-1.5V8.5z" fill="#41A5EE" />
+    <path d="M14.5 2v5a1.5 1.5 0 0 0 1.5 1.5h5z" fill="#A9D3F7" />
+    <rect x="2.5" y="7" width="11" height="11" rx="1.5" fill="#185ABD" />
+    <path d="m5 10 1.3 5 1.7-4 1.7 4L11 10" fill="none" stroke="#fff" strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
 export const IconoEnlace = (p) => (
   <svg viewBox="0 0 24 24" {...base} {...p}><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" /></svg>
 )
