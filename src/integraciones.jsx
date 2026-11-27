@@ -3,7 +3,7 @@
 // Seguridad: el enlace de cada usuario (con su token) se guarda SOLO en el servidor (tablas *_privado)
 // y lo usa la Edge Function correspondiente. El navegador nunca lo recibe: solo pide las tareas nuevas.
 import { supabase } from './supabase'
-import { IconoClassroom, IconoMoodle } from './components/Iconos'
+import { IconoClassroom, IconoGithub, IconoMoodle } from './components/Iconos'
 
 const diasHasta = (iso) => Math.ceil((new Date(iso + 'T00:00:00') - new Date().setHours(0, 0, 0, 0)) / 86400000)
 const fechaLegible = (iso) =>
@@ -94,6 +94,31 @@ export const INTEGRACIONES = {
   },
 }
 
+/** Integraciones que no traen tareas, solo sirven de herramienta (GitHub: crear repositorios) */
+export const HERRAMIENTAS = {
+  github: {
+    clave: 'github',
+    nombre: 'GitHub',
+    corto: 'GitHub',
+    Icono: IconoGithub,
+    color: 'bg-base-content/10 text-base-content',
+    importa: false, // no crea proyectos: solo se usa para crear el repositorio de una entrega
+    secreto: true, // el campo es un token: se escribe oculto
+    descripcion: 'Crea un repositorio privado en tu GitHub para cada entrega, con un botón en la tarea.',
+    etiquetaUrl: 'Token personal de GitHub',
+    placeholder: 'ghp_... o github_pat_...',
+    validar: (token) =>
+      !/^(ghp_|github_pat_)[A-Za-z0-9_]+$/.test(token) ? 'El token de GitHub empieza por ghp_ o github_pat_.' : null,
+    guia: [
+      'Entra en github.com con tu cuenta → foto de perfil → Settings → Developer settings.',
+      'Personal access tokens → Tokens (classic) → Generate new token (classic).',
+      'Ponle un nombre (por ejemplo "Gestión de proyectos"), elige la caducidad y marca el permiso "repo".',
+      'Pulsa Generate token, copia el token (empieza por ghp_) y pégalo aquí.',
+    ],
+  },
+}
+const TODAS = { ...INTEGRACIONES, ...HERRAMIENTAS }
+
 /** Datos de la integración de la que viene un proyecto (o undefined si se creó a mano) */
 export const integracionDe = (proyecto) => INTEGRACIONES[proyecto?.origen?.tipo]
 
@@ -102,7 +127,7 @@ export const integracionDe = (proyecto) => INTEGRACIONES[proyecto?.origen?.tipo]
 async function llamar(clave, cuerpo) {
   const { data, error } = await supabase.functions.invoke(clave, { body: cuerpo })
   if (error) {
-    let mensaje = `No se pudo contactar con el servidor de ${INTEGRACIONES[clave].corto}`
+    let mensaje = `No se pudo contactar con el servidor de ${TODAS[clave].corto}`
     try {
       mensaje = (await error.context.json()).error ?? mensaje
     } catch {
@@ -121,6 +146,10 @@ export const desconectar = async (clave) => (await llamar(clave, { accion: 'borr
 /** Crea un Google Doc para una tarea (con el script de Classroom) y devuelve su enlace */
 export const crearDocumento = async ({ titulo, asignatura, fecha }) =>
   (await llamar('classroom', { accion: 'crearDocumento', titulo, asignatura, fecha })).url
+
+/** Crea un repositorio privado en el GitHub del usuario para una entrega y devuelve su enlace */
+export const crearRepositorio = async ({ titulo, asignatura, fecha, descripcion }) =>
+  (await llamar('github', { accion: 'crearRepositorio', titulo, asignatura, fecha, descripcion })).url
 
 const ocupado = {}
 

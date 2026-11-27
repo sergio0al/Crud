@@ -102,7 +102,8 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
   const listo = !cargando && proyectosLocales === 0
   const classroom = useIntegracion('classroom', importar, listo, actualizarFechas)
   const moodle = useIntegracion('moodle', importar, listo, actualizarFechas)
-  const integraciones = [classroom, moodle]
+  const github = useIntegracion('github', importar, listo, actualizarFechas) // solo para crear repositorios
+  const integraciones = [classroom, moodle, github]
   const [configIntegracion, setConfigIntegracion] = useState(null) // null | 'classroom' | 'moodle'
   const integracionAbierta = integraciones.find((i) => i.clave === configIntegracion)
   const aviso = integraciones.find((i) => i.aviso)?.aviso
@@ -293,6 +294,8 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
             usuario={usuario}
             asignaturas={listarAsignaturas(proyectos).map((a) => a.nombre)}
             classroomConectado={classroom.conectado}
+            githubConectado={github.conectado}
+            onConectarGithub={() => setConfigIntegracion('github')}
             onCrear={(datos) => {
               guardar({ ...datos, tablero_id: panel.tablero_id ?? null })
               cerrarPanel()

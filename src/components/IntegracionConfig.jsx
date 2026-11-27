@@ -50,17 +50,19 @@ export default function IntegracionConfig({ integracion, onCerrar }) {
         <div className="flex flex-wrap items-center gap-2">
           <span className={`size-2 rounded-full ${conectado ? (error ? 'bg-error' : 'bg-success') : 'bg-base-content/30'}`} />
           {conectado ? (error ? 'Conectado con errores' : 'Conectado') : 'Sin conectar'}
-          {ultima && conectado && <span className="text-base-content/50">· Última comprobación {formatear(ultima)}</span>}
+          {ultima && conectado && info.importa !== false && <span className="text-base-content/50">· Última comprobación {formatear(ultima)}</span>}
         </div>
 
         {error && conectado && <div className="alert alert-error alert-soft py-2 text-sm">{error}</div>}
 
         {conectado && (
           <div className="flex flex-wrap gap-2">
+            {info.importa !== false && (
             <button type="button" className="btn btn-sm" onClick={() => sincronizarAhora()} disabled={cargando}>
               {cargando && <span className="loading loading-spinner loading-xs" />}
               Comprobar ahora
             </button>
+            )}
             <button
               type="button"
               className="btn btn-sm btn-ghost text-error"
@@ -77,6 +79,7 @@ export default function IntegracionConfig({ integracion, onCerrar }) {
           </label>
           <input
             id={`url-${info.clave}`}
+            type={info.secreto ? 'password' : 'text'}
             className="input w-full font-mono text-xs"
             placeholder={info.placeholder}
             value={texto}
@@ -89,7 +92,7 @@ export default function IntegracionConfig({ integracion, onCerrar }) {
           {aviso && <p className="text-xs text-error">{aviso}</p>}
           <button type="submit" className="btn btn-sm btn-primary" disabled={guardando || !texto.trim()}>
             {guardando && <span className="loading loading-spinner loading-xs" />}
-            {conectado ? 'Guardar nuevo enlace' : 'Conectar'}
+            {conectado ? (info.secreto ? 'Guardar nuevo token' : 'Guardar nuevo enlace') : 'Conectar'}
           </button>
         </form>
 

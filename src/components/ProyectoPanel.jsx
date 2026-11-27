@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { ESTADOS, PRIORIDADES, findOption } from '../constants'
 import { iniciales } from '../auth'
 import Markdown from './Markdown'
-import { IconoCerrar, IconoMas, IconoPrioridad, IconoPuntos, IconoTarea } from './Iconos'
-import { crearDocumento, integracionDe } from '../integraciones'
+import { IconoCerrar, IconoGithub, IconoMas, IconoPrioridad, IconoPuntos, IconoTarea } from './Iconos'
+import { crearDocumento, crearRepositorio, integracionDe } from '../integraciones'
 import { asignaturaDe, colorAsignatura } from '../asignaturas'
 
 const ESTILO_ESTADO = {
@@ -41,6 +41,8 @@ export default function ProyectoPanel({
   usuario,
   asignaturas = [],
   classroomConectado,
+  githubConectado,
+  onConectarGithub,
   onCrear,
   onActualizar,
   onBorrar,
@@ -204,6 +206,12 @@ export default function ProyectoPanel({
             <div className="space-y-2">
               <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-base-content/50">Enlaces</h3>
               <TarjetaDocumento proyecto={proyecto} disponible={classroomConectado} onGuardar={(documento) => onActualizar({ documento })} />
+              <TarjetaRepositorio
+                proyecto={proyecto}
+                disponible={githubConectado}
+                onConectar={onConectarGithub}
+                onGuardar={(repositorio) => onActualizar({ repositorio })}
+              />
               {origen && datos.origen.enlace && (
                 <TarjetaEnlace
                   href={datos.origen.enlace}
@@ -434,6 +442,68 @@ function TarjetaDocumento({ proyecto, disponible, onGuardar }) {
           <span className="block text-sm font-medium">{creando ? 'Creando documento…' : 'Crear documento de Google'}</span>
           <span className="block truncate text-xs text-base-content/60">
             {disponible ? 'Se guarda en tu Drive, carpeta Proyectos' : 'Conecta Classroom para usarlo'}
+          </span>
+        </span>
+        {!creando && <IconoMas className="size-4 shrink-0 text-base-content/30 group-hover:text-base-content/70 transition" />}
+      </button>
+      {error && <p className="mt-1 px-1 text-xs text-error">{error}</p>}
+    </div>
+  )
+}
+
+// Repositorio de GitHub de la entrega: la primera vez se crea (privado, con README) y después siempre abre el mismo
+function TarjetaRepositorio({ proyecto, disponible, onConectar, onGuardar }) {
+  const [creando, setCreando] = useState(false)
+  const [error, setError] = useState('')
+
+  if (proyecto.repositorio)
+    return (
+      <TarjetaEnlace
+        href={proyecto.repositorio}
+        icono={<IconoGithub className="size-6" />}
+        colorIcono="bg-base-content/10"
+        titulo="Repositorio de GitHub"
+        subtitulo={proyecto.repositorio.replace('https://github.com/', '')}
+      />
+    )
+
+  const crear = async () => {
+    if (!disponible) return onConectar()
+    setError('')
+    setCreando(true)
+    const ventana = window.open('', '_blank') // se abre ya para que el navegador no la bloquee
+    try {
+      const url = await crearRepositorio({
+        titulo: proyecto.titulo,
+        asignatura: asignaturaDe(proyecto),
+        fecha: proyecto.fecha,
+        descripcion: proyecto.descripcion,
+      })
+      onGuardar(url)
+      if (ventana) ventana.location.href = url
+    } catch (err) {
+      ventana?.close()
+      setError(err.message)
+    } finally {
+      setCreando(false)
+    }
+  }
+
+  return (
+    <div>
+      <button
+        className={`${CLASE_TARJETA} border-dashed`}
+        disabled={creando}
+        title={disponible ? 'Crea un repositorio privado en tu GitHub para esta entrega' : 'Conecta GitHub para crear repositorios'}
+        onClick={crear}
+      >
+        <span className="grid place-items-center size-10 shrink-0 rounded-lg bg-base-content/10">
+          {creando ? <span className="loading loading-spinner loading-sm" /> : <IconoGithub className="size-6" />}
+        </span>
+        <span className="flex-1 min-w-0">
+          <span className="block text-sm font-medium">{creando ? 'Creando repositorio…' : 'Crear repositorio'}</span>
+          <span className="block truncate text-xs text-base-content/60">
+            {disponible ? 'Privado, en tu cuenta de GitHub' : 'Conecta GitHub para usarlo'}
           </span>
         </span>
         {!creando && <IconoMas className="size-4 shrink-0 text-base-content/30 group-hover:text-base-content/70 transition" />}

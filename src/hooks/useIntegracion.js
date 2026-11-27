@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { INTEGRACIONES, desconectar, estadoIntegracion, guardarUrl, sincronizar, ultimaSincronizacion } from '../integraciones'
+import { HERRAMIENTAS, INTEGRACIONES, desconectar, estadoIntegracion, guardarUrl, sincronizar, ultimaSincronizacion } from '../integraciones'
 
 const CADA_MINUTOS = 5
 
@@ -10,7 +10,7 @@ const CADA_MINUTOS = 5
  * - `onFechas` recibe [{ id, entrega }] para actualizar fechas que hayan cambiado (Moodle).
  */
 export function useIntegracion(clave, importar, activo, onFechas) {
-  const info = INTEGRACIONES[clave]
+  const info = INTEGRACIONES[clave] ?? HERRAMIENTAS[clave]
   const [conectado, setConectado] = useState(null) // null = comprobando
   const [estado, setEstado] = useState({ cargando: false, error: '', ultima: ultimaSincronizacion(clave) })
   const [aviso, setAviso] = useState(null)
@@ -41,7 +41,7 @@ export function useIntegracion(clave, importar, activo, onFechas) {
 
   const sincronizarAhora = useCallback(
     async (silencioso = false) => {
-      if (!conectado) return
+      if (!conectado || info.importa === false) return
       setEstado((e) => ({ ...e, cargando: true, error: '' }))
       try {
         const resultado = await sincronizar(clave)
@@ -57,15 +57,15 @@ export function useIntegracion(clave, importar, activo, onFechas) {
         if (!silencioso) setAviso(err.message)
       }
     },
-    [conectado, clave, info.corto],
+    [conectado, clave, info.corto, info.importa],
   )
 
   useEffect(() => {
-    if (!conectado || !activo) return
+    if (!conectado || !activo || info.importa === false) return
     sincronizarAhora(true)
     const id = setInterval(() => sincronizarAhora(true), CADA_MINUTOS * 60000)
     return () => clearInterval(id)
-  }, [conectado, activo, sincronizarAhora])
+  }, [conectado, activo, sincronizarAhora, info.importa])
 
   useEffect(() => {
     if (!aviso) return

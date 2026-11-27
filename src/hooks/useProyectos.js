@@ -5,7 +5,7 @@ import { migrarEstado } from '../constants'
 export const PREFIJO = 'PRJ'
 export const clave = (p) => `${PREFIJO}-${p.numero}`
 
-const COLUMNAS = ['titulo', 'descripcion', 'fecha', 'estado', 'prioridad', 'asignatura', 'documento', 'origen', 'tablero_id']
+const COLUMNAS = ['titulo', 'descripcion', 'fecha', 'estado', 'prioridad', 'asignatura', 'documento', 'repositorio', 'origen', 'tablero_id']
 const aFila = (datos) => Object.fromEntries(COLUMNAS.filter((k) => k in datos).map((k) => [k, datos[k] ?? null]))
 
 // nombres: Map id → nombre de los usuarios con los que comparto tableros (y yo)
@@ -78,10 +78,10 @@ export function useProyectos(perfil) {
   // Si algo falla en el servidor, se avisa y se recarga el estado real
   const fallo = (err) => {
     const mensaje = err.message ?? String(err)
-    const columna = mensaje.match(/'(asignatura|documento|tablero_id)' column/)?.[1]
+    const columna = mensaje.match(/'(asignatura|documento|repositorio|tablero_id)' column/)?.[1]
     setError(
       columna
-        ? `Falta la columna "${columna}" en la base de datos: ejecuta supabase/${columna === 'tablero_id' ? 'compartidos' : columna}.sql en Supabase → SQL Editor.`
+        ? `Falta la columna "${columna}" en la base de datos: ejecuta supabase/${columna === 'tablero_id' ? 'compartidos' : columna === 'repositorio' ? 'github' : columna}.sql en Supabase → SQL Editor.`
         : mensaje,
     )
     cargar()
