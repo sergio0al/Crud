@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ESTADOS, PRIORIDADES, findOption } from '../constants'
 import { iniciales } from '../auth'
 import Markdown from './Markdown'
-import { IconoCerrar, IconoEnlace, IconoPrioridad, IconoPuntos, IconoTarea } from './Iconos'
+import { IconoCerrar, IconoMas, IconoPrioridad, IconoPuntos, IconoTarea } from './Iconos'
 import { crearDocumento, integracionDe } from '../integraciones'
 import { asignaturaDe, colorAsignatura } from '../asignaturas'
 
@@ -100,23 +100,13 @@ export default function ProyectoPanel({
         <div className="md:overflow-y-auto px-5 md:pl-8 md:pr-10 pb-8 space-y-6">
           <Titulo creando={creando} valor={datos.titulo} onCambiar={(titulo) => cambiar({ titulo })} />
 
-          {(origen || !creando) && (
+          {origen && (
             <div className="flex flex-wrap items-center gap-2 -mt-3">
-              {origen && (
-                <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${origen.color}`}>
-                  <origen.Icono className="size-4" />
-                  {origen.nombre}
-                  {datos.origen.curso && ` · ${datos.origen.curso}`}
-                </span>
-              )}
-              {origen && datos.origen.enlace && (
-                <a href={datos.origen.enlace} target="_blank" rel="noreferrer" className="btn btn-xs btn-outline border-base-300 font-normal">
-                  <IconoEnlace className="size-3.5" /> Abrir en {origen.corto}
-                </a>
-              )}
-              {!creando && (
-                <BotonDocumento proyecto={proyecto} disponible={classroomConectado} onGuardar={(documento) => onActualizar({ documento })} />
-              )}
+              <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${origen.color}`}>
+                <origen.Icono className="size-4" />
+                {origen.nombre}
+                {datos.origen.curso && ` · ${datos.origen.curso}`}
+              </span>
             </div>
           )}
 
@@ -209,6 +199,22 @@ export default function ProyectoPanel({
               </dl>
             )}
           </div>
+
+          {!creando && (
+            <div className="space-y-2">
+              <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-base-content/50">Enlaces</h3>
+              <TarjetaDocumento proyecto={proyecto} disponible={classroomConectado} onGuardar={(documento) => onActualizar({ documento })} />
+              {origen && datos.origen.enlace && (
+                <TarjetaEnlace
+                  href={datos.origen.enlace}
+                  icono={<origen.Icono className="size-6" />}
+                  colorIcono={origen.color}
+                  titulo={`Ver en ${origen.corto}`}
+                  subtitulo={datos.origen.curso || origen.nombre}
+                />
+              )}
+            </div>
+          )}
 
           {!creando && (
             <div className="px-1 text-xs text-base-content/50 space-y-1">
@@ -343,22 +349,57 @@ function Descripcion({ creando, valor, onCambiar }) {
   )
 }
 
-// Google Doc de la tarea: la primera vez se crea (con el script de Classroom) y después siempre abre el mismo
-function BotonDocumento({ proyecto, disponible, onGuardar }) {
-  const [creando, setCreando] = useState(false)
-  const [error, setError] = useState('')
-  const icono = (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="size-3.5">
-      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
-      <path d="M14 3v5h5M9 13h6M9 17h4" />
+// Icono de Google Docs (hoja azul con líneas)
+function IconoDocs({ className = 'size-6' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path d="M14.5 2H6.5A1.5 1.5 0 0 0 5 3.5v17A1.5 1.5 0 0 0 6.5 22h11a1.5 1.5 0 0 0 1.5-1.5V6.5z" fill="#4285F4" />
+      <path d="M14.5 2v3a1.5 1.5 0 0 0 1.5 1.5h3z" fill="#A1C2FA" />
+      <path d="M8.5 11h7M8.5 14h7M8.5 17h4.5" stroke="#fff" strokeWidth={1.5} strokeLinecap="round" />
     </svg>
   )
+}
+
+function Flechita() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"
+      className="size-4 shrink-0 text-base-content/30 group-hover:text-base-content/70 group-hover:translate-x-0.5 transition">
+      <path d="M7 17 17 7M8 7h9v9" />
+    </svg>
+  )
+}
+
+const CLASE_TARJETA =
+  'group flex w-full items-center gap-3 rounded-lg border border-base-300 bg-base-100 p-3 text-left transition hover:border-base-content/20 hover:shadow-sm disabled:opacity-60 disabled:hover:shadow-none disabled:cursor-not-allowed'
+
+/** Tarjeta grande con icono, título y subtítulo que abre un enlace externo */
+function TarjetaEnlace({ href, icono, colorIcono, titulo, subtitulo }) {
+  return (
+    <a href={href} target="_blank" rel="noreferrer" className={CLASE_TARJETA}>
+      <span className={`grid place-items-center size-10 shrink-0 rounded-lg ${colorIcono}`}>{icono}</span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm font-medium">{titulo}</span>
+        <span className="block truncate text-xs text-base-content/60" title={subtitulo}>{subtitulo}</span>
+      </span>
+      <Flechita />
+    </a>
+  )
+}
+
+// Google Doc de la tarea: la primera vez se crea (con el script de Classroom) y después siempre abre el mismo
+function TarjetaDocumento({ proyecto, disponible, onGuardar }) {
+  const [creando, setCreando] = useState(false)
+  const [error, setError] = useState('')
 
   if (proyecto.documento)
     return (
-      <a href={proyecto.documento} target="_blank" rel="noreferrer" className="btn btn-xs btn-outline border-info/40 text-info font-normal">
-        {icono} Abrir documento
-      </a>
+      <TarjetaEnlace
+        href={proyecto.documento}
+        icono={<IconoDocs />}
+        colorIcono="bg-[#4285F4]/10"
+        titulo="Documento de Google"
+        subtitulo="Abrir en Google Docs"
+      />
     )
 
   const crear = async () => {
@@ -379,18 +420,26 @@ function BotonDocumento({ proyecto, disponible, onGuardar }) {
   }
 
   return (
-    <>
+    <div>
       <button
-        className="btn btn-xs btn-outline border-base-300 font-normal"
+        className={`${CLASE_TARJETA} border-dashed`}
         disabled={!disponible || creando}
         title={disponible ? 'Crea un documento de Google para esta tarea' : 'Conecta Classroom para poder crear documentos'}
         onClick={crear}
       >
-        {creando ? <span className="loading loading-spinner loading-xs" /> : icono}
-        {creando ? 'Creando documento…' : 'Crear documento'}
+        <span className="grid place-items-center size-10 shrink-0 rounded-lg bg-[#4285F4]/10">
+          {creando ? <span className="loading loading-spinner loading-sm text-[#4285F4]" /> : <IconoDocs />}
+        </span>
+        <span className="flex-1 min-w-0">
+          <span className="block text-sm font-medium">{creando ? 'Creando documento…' : 'Crear documento de Google'}</span>
+          <span className="block truncate text-xs text-base-content/60">
+            {disponible ? 'Se guarda en tu Drive, carpeta Proyectos' : 'Conecta Classroom para usarlo'}
+          </span>
+        </span>
+        {!creando && <IconoMas className="size-4 shrink-0 text-base-content/30 group-hover:text-base-content/70 transition" />}
       </button>
-      {error && <span className="w-full text-xs text-error">{error}</span>}
-    </>
+      {error && <p className="mt-1 px-1 text-xs text-error">{error}</p>}
+    </div>
   )
 }
 
