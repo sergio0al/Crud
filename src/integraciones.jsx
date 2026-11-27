@@ -49,6 +49,7 @@ export const INTEGRACIONES = {
       fecha: t.entrega || t.recibido.slice(0, 10),
       estado: 'por_hacer',
       prioridad: t.entrega && diasHasta(t.entrega) <= 2 ? 'alta' : 'media',
+      asignatura: t.curso || '',
       origen: { tipo: 'classroom', id: t.id, curso: t.curso || '', enlace: t.enlace || '' },
     }),
   },
@@ -87,6 +88,7 @@ export const INTEGRACIONES = {
       fecha: t.entrega,
       estado: 'por_hacer',
       prioridad: diasHasta(t.entrega) <= 2 ? 'alta' : 'media',
+      asignatura: t.curso || '',
       origen: { tipo: 'moodle', id: t.id, curso: t.curso || '', enlace: t.enlace || '' },
     }),
   },
@@ -115,6 +117,10 @@ export const ultimaSincronizacion = (clave) => Number(localStorage.getItem(`${cl
 export const estadoIntegracion = async (clave) => (await llamar(clave, { accion: 'estado' })).configurado
 export const guardarUrl = async (clave, url) => (await llamar(clave, { accion: 'guardar', url })).configurado
 export const desconectar = async (clave) => (await llamar(clave, { accion: 'borrar' })).configurado
+
+/** Crea un Google Doc para una tarea (con el script de Classroom) y devuelve su enlace */
+export const crearDocumento = async ({ titulo, asignatura, fecha }) =>
+  (await llamar('classroom', { accion: 'crearDocumento', titulo, asignatura, fecha })).url
 
 const ocupado = {}
 

@@ -25,11 +25,17 @@ create table if not exists public.proyectos (
   estado      text not null default 'por_hacer'
               check (estado in ('por_hacer', 'en_curso', 'en_revision', 'pruebas', 'hecho')),
   prioridad   text not null default 'media' check (prioridad in ('baja', 'media', 'alta')),
+  asignatura  text not null default '',
+  documento   text check (documento is null or documento like 'https://docs.google.com/%'),
   origen      jsonb,
   creado      timestamptz not null default now(),
   actualizado timestamptz
 );
 create index if not exists proyectos_user_idx on public.proyectos (user_id);
+-- Para bases de datos creadas antes de añadir la asignatura
+alter table public.proyectos add column if not exists asignatura text not null default '';
+alter table public.proyectos add column if not exists documento text
+  check (documento is null or documento like 'https://docs.google.com/%');
 
 -- ---------- Comentarios ----------
 create table if not exists public.comentarios (

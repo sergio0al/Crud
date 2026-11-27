@@ -3,7 +3,8 @@ import { ESTADOS, PRIORIDADES, findOption } from '../constants'
 import { iniciales } from '../auth'
 import Markdown from './Markdown'
 import { IconoCerrar, IconoEnlace, IconoPrioridad, IconoPuntos, IconoTarea } from './Iconos'
-import { integracionDe } from '../integraciones'
+import { crearDocumento, integracionDe } from '../integraciones'
+import { asignaturaDe, colorAsignatura } from '../asignaturas'
 
 const ESTILO_ESTADO = {
   por_hacer: 'bg-base-200 text-base-content border-base-300 hover:bg-base-300',
@@ -20,6 +21,7 @@ const vacio = (estado) => ({
   fecha: hoy(),
   estado: estado ?? 'por_hacer',
   prioridad: 'media',
+  asignatura: '',
 })
 
 const formatearMomento = (ms) =>
@@ -37,6 +39,8 @@ export default function ProyectoPanel({
   estadoInicial,
   clave,
   usuario,
+  asignaturas = [],
+  classroomConectado,
   onCrear,
   onActualizar,
   onBorrar,
@@ -56,7 +60,12 @@ export default function ProyectoPanel({
   const crear = () => {
     if (!borrador.titulo.trim()) return setError('El título es obligatorio')
     if (!borrador.fecha) return setError('La fecha es obligatoria')
-    onCrear({ ...borrador, titulo: borrador.titulo.trim(), descripcion: borrador.descripcion.trim() })
+    onCrear({
+      ...borrador,
+      titulo: borrador.titulo.trim(),
+      descripcion: borrador.descripcion.trim(),
+      asignatura: borrador.asignatura.trim(),
+    })
   }
 
   return (
@@ -91,17 +100,22 @@ export default function ProyectoPanel({
         <div className="md:overflow-y-auto px-5 md:pl-8 md:pr-10 pb-8 space-y-6">
           <Titulo creando={creando} valor={datos.titulo} onCambiar={(titulo) => cambiar({ titulo })} />
 
-          {origen && (
+          {(origen || !creando) && (
             <div className="flex flex-wrap items-center gap-2 -mt-3">
-              <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${origen.color}`}>
-                <origen.Icono className="size-4" />
-                {origen.nombre}
-                {datos.origen.curso && ` · ${datos.origen.curso}`}
-              </span>
-              {datos.origen.enlace && (
+              {origen && (
+                <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${origen.color}`}>
+                  <origen.Icono className="size-4" />
+                  {origen.nombre}
+                  {datos.origen.curso && ` · ${datos.origen.curso}`}
+                </span>
+              )}
+              {origen && datos.origen.enlace && (
                 <a href={datos.origen.enlace} target="_blank" rel="noreferrer" className="btn btn-xs btn-outline border-base-300 font-normal">
                   <IconoEnlace className="size-3.5" /> Abrir en {origen.corto}
                 </a>
+              )}
+              {!creando && (
+                <BotonDocumento proyecto={proyecto} disponible={classroomConectado} onGuardar={(documento) => onActualizar({ documento })} />
               )}
             </div>
           )}
@@ -143,6 +157,16 @@ export default function ProyectoPanel({
             </button>
             {detallesAbiertos && (
               <dl className="px-4 pb-4 pt-1 space-y-1 text-sm">
+                <Fila etiqueta="Asignatura">
+                  <CampoAsignatura
+                    key={creando ? 'nuevo' : asignaturaDe(datos)}
+                    creando={creando}
+                    valor={asignaturaDe(datos)}
+                    opciones={asignaturas}
+                    onCambiar={(asignatura) => cambiar({ asignatura })}
+                  />
+                </Fila>
+
                 <Fila etiqueta="Prioridad">
                   <label className="flex items-center gap-2 -ml-2 px-2 py-1 rounded-md hover:bg-base-200 cursor-pointer">
                     <IconoPrioridad prioridad={datos.prioridad} />
@@ -316,6 +340,94 @@ function Descripcion({ creando, valor, onCambiar }) {
     >
       {valor ? <Markdown texto={valor} /> : <p className="text-sm text-base-content/40">Añade una descripción...</p>}
     </div>
+  )
+}
+
+// Google Doc de la tarea: la primera vez se crea (con el script de Classroom) y después siempre abre el mismo
+function BotonDocumento({ proyecto, disponible, onGuardar }) {
+  const [creando, setCreando] = useState(false)
+  const [error, setError] = useState('')
+  const icono = (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="size-3.5">
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+      <path d="M14 3v5h5M9 13h6M9 17h4" />
+    </svg>
+  )
+
+  if (proyecto.documento)
+    return (
+      <a href={proyecto.documento} target="_blank" rel="noreferrer" className="btn btn-xs btn-outline border-info/40 text-info font-normal">
+        {icono} Abrir documento
+      </a>
+    )
+
+  const crear = async () => {
+    setError('')
+    setCreando(true)
+    // Se abre la pestaña ya (con el clic) para que el navegador no la bloquee, y luego se le pone el enlace
+    const ventana = window.open('', '_blank')
+    try {
+      const url = await crearDocumento({ titulo: proyecto.titulo, asignatura: asignaturaDe(proyecto), fecha: proyecto.fecha })
+      onGuardar(url)
+      if (ventana) ventana.location.href = url
+    } catch (err) {
+      ventana?.close()
+      setError(err.message)
+    } finally {
+      setCreando(false)
+    }
+  }
+
+  return (
+    <>
+      <button
+        className="btn btn-xs btn-outline border-base-300 font-normal"
+        disabled={!disponible || creando}
+        title={disponible ? 'Crea un documento de Google para esta tarea' : 'Conecta Classroom para poder crear documentos'}
+        onClick={crear}
+      >
+        {creando ? <span className="loading loading-spinner loading-xs" /> : icono}
+        {creando ? 'Creando documento…' : 'Crear documento'}
+      </button>
+      {error && <span className="w-full text-xs text-error">{error}</span>}
+    </>
+  )
+}
+
+// Texto libre con sugerencias de las asignaturas que ya existen.
+// Al crear se guarda en el borrador; al editar, cuando se sale del campo o se pulsa Enter.
+function CampoAsignatura({ creando, valor, opciones, onCambiar }) {
+  const [texto, setTexto] = useState(valor)
+  const guardar = () => {
+    const limpio = texto.trim()
+    if (limpio !== valor) onCambiar(limpio)
+  }
+  return (
+    <label className="flex items-center gap-2 -ml-2 px-2 py-1 rounded-md hover:bg-base-200 focus-within:bg-base-200 cursor-text">
+      <span
+        className="size-2.5 shrink-0 rounded-full border border-dashed border-base-content/30"
+        style={texto.trim() ? colorAsignatura(texto.trim()).punto : undefined}
+      />
+      <input
+        list="asignaturas-existentes"
+        className="flex-1 min-w-0 bg-transparent outline-none placeholder:text-base-content/40"
+        placeholder="Sin asignatura"
+        value={creando ? valor : texto}
+        onChange={(e) => (creando ? onCambiar(e.target.value) : setTexto(e.target.value))}
+        onBlur={creando ? undefined : guardar}
+        onKeyDown={(e) => {
+          if (creando) return
+          if (e.key === 'Enter') e.currentTarget.blur()
+          if (e.key === 'Escape') {
+            e.stopPropagation()
+            setTexto(valor)
+          }
+        }}
+      />
+      <datalist id="asignaturas-existentes">
+        {opciones.map((a) => <option key={a} value={a} />)}
+      </datalist>
+    </label>
   )
 }
 

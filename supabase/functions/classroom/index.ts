@@ -84,6 +84,29 @@ Deno.serve(async (req) => {
       return responder({ total: tareas.length, nuevas })
     }
 
+    // Crea un Google Doc para una tarea con el mismo script de Classroom (en la cuenta de Google del usuario)
+    case 'crearDocumento': {
+      const url = await leerUrl()
+      if (!url) return responder({ error: 'Conecta Classroom para poder crear documentos de Google' }, 400)
+      const destino = new URL(url)
+      destino.searchParams.set('accion', 'crearDoc')
+      destino.searchParams.set('titulo', String(cuerpo.titulo ?? '').slice(0, 200))
+      destino.searchParams.set('asignatura', String(cuerpo.asignatura ?? '').slice(0, 200))
+      destino.searchParams.set('fecha', String(cuerpo.fecha ?? '').slice(0, 20))
+
+      let datos: { url?: string; error?: string }
+      try {
+        const r = await fetch(destino, { redirect: 'follow' })
+        datos = await r.json()
+      } catch {
+        return responder({ error: 'El script de Google no respondió. ¿Has publicado la versión nueva del script?' }, 502)
+      }
+      if (datos.error) return responder({ error: datos.error }, 400)
+      if (!datos.url?.startsWith('https://docs.google.com/'))
+        return responder({ error: 'El script no devolvió un documento. Publica la versión nueva de Classroom.gs.' }, 502)
+      return responder({ url: datos.url })
+    }
+
     default:
       return responder({ error: 'Acción desconocida' }, 400)
   }

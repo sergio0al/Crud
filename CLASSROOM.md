@@ -49,6 +49,19 @@ no tiene acceso. A partir de ahí, la Edge Function `classroom` es la única que
 - Una tarea ya importada no se vuelve a crear, aunque la borres del tablero.
 - Puedes seguir creando proyectos a mano con **Nuevo proyecto**.
 
+## Documentos de Google por tarea
+
+Con Classroom conectado, cada tarea tiene un botón **Crear documento** (debajo del título, en el panel de la tarea).
+La primera vez crea un Google Doc en tu Drive, dentro de la carpeta **Proyectos**, con el título, la asignatura y la
+fecha de entrega. Desde ese momento el botón pasa a **Abrir documento** y abre siempre ese mismo documento.
+
+Para activarlo hace falta:
+
+1. Ejecutar `supabase/documento.sql` en Supabase → SQL Editor.
+2. Actualizar la Edge Function `classroom` con el contenido de `supabase/functions/classroom/index.ts`.
+3. Pegar la versión nueva de `Classroom.gs` (conservando tu `TOKEN`), ejecutar **probarDocumento** para aceptar
+   los permisos de Docs y Drive, y publicar una versión nueva (ver abajo).
+
 ## Si cambias el script
 
 Después de editar `Classroom.gs` hay que publicar otra vez: **Implementar → Gestionar implementaciones → editar (lápiz) →

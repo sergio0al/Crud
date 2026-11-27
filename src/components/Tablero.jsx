@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ESTADOS, PRIORIDADES } from '../constants'
 import { clave } from '../hooks/useProyectos'
 import { integracionDe } from '../integraciones'
+import { asignaturaDe, colorAsignatura, listarAsignaturas } from '../asignaturas'
+import { useLocalStorage } from '../hooks/useLocalStorage'
 import {
   IconoBuscar,
   IconoCalendario,
@@ -14,7 +16,8 @@ import {
   IconoPuntos,
 } from './Iconos'
 
-const ORDEN_PRIORIDAD = { alta: 0, media: 1, baja: 2 }
+const SIN_ASIGNATURA = '__sin__'
+const ORDEN_PRIORIDAD ={ alta: 0, media: 1, baja: 2 }
 const ORDENES = [
   { value: 'prioridad', label: 'Prioridad' },
   { value: 'fecha', label: 'Fecha' },
@@ -43,6 +46,15 @@ const vistaPrevia = (texto) =>
 export default function Tablero({ proyectos, busqueda, onBusqueda, buscadorMovil, onMover, onAbrir, onNuevo, onEditar, onBorrar }) {
   const [filtroPrioridad, setFiltroPrioridad] = useState('todas')
   const [orden, setOrden] = useState('prioridad')
+  // 'todas' | SIN_ASIGNATURA | nombre de la asignatura (se recuerda entre visitas)
+  const [asignaturaElegida, setFiltroAsignatura] = useLocalStorage('filtro_asignatura', 'todas')
+  const asignaturas = useMemo(() => listarAsignaturas(proyectos), [proyectos])
+  const sinAsignatura = useMemo(() => proyectos.filter((p) => !asignaturaDe(p)).length, [proyectos])
+  // Si la asignatura guardada ya no existe (se renombró o se borraron sus tareas), volver a todas
+  const filtroAsignatura =
+    asignaturaElegida === SIN_ASIGNATURA || asignaturas.some((a) => a.nombre === asignaturaElegida)
+      ? asignaturaElegida
+      : 'todas'
   const [arrastrando, setArrastrando] = useState(null) // null | { id, estado }
   const [columnaSobre, setColumnaSobre] = useState(null)
   const scrollRef = useRef(null)
@@ -65,9 +77,15 @@ export default function Tablero({ proyectos, busqueda, onBusqueda, buscadorMovil
       .filter((p) => filtroPrioridad === 'todas' || p.prioridad === filtroPrioridad)
       .filter(
         (p) =>
+          filtroAsignatura === 'todas' ||
+          (filtroAsignatura === SIN_ASIGNATURA ? !asignaturaDe(p) : asignaturaDe(p) === filtroAsignatura),
+      )
+      .filter(
+        (p) =>
           !q ||
           p.titulo.toLowerCase().includes(q) ||
           p.descripcion.toLowerCase().includes(q) ||
+          asignaturaDe(p).toLowerCase().includes(q) ||
           clave(p).toLowerCase().includes(q),
       )
       .sort((a, b) =>
@@ -77,7 +95,7 @@ export default function Tablero({ proyectos, busqueda, onBusqueda, buscadorMovil
             ? a.titulo.localeCompare(b.titulo)
             : a.fecha.localeCompare(b.fecha),
       )
-  }, [proyectos, busqueda, filtroPrioridad, orden])
+  }, [proyectos, busqueda, filtroPrioridad, filtroAsignatura, orden])
 
   // ---------- Arrastrar con eventos de puntero ----------
   // No usa el drag & drop nativo del navegador (falla con pantallas táctiles, algunos trackpads y navegadores
@@ -203,6 +221,56 @@ export default function Tablero({ proyectos, busqueda, onBusqueda, buscadorMovil
             ))}
           </ul>
         </div>
+
+        {asignaturas.length > 0 && (
+          <div className="dropdown">
+            <div
+              tabIndex={0}
+              role="button"
+              className={`btn btn-sm font-normal max-w-64 ${
+                filtroAsignatura !== 'todas' ? 'bg-primary/10 border-primary/30' : 'bg-base-100 border-base-300'
+              }`}
+            >
+              <span
+                className="size-2.5 shrink-0 rounded-full border border-base-content/30"
+                style={filtroAsignatura !== 'todas' && filtroAsignatura !== SIN_ASIGNATURA ? colorAsignatura(filtroAsignatura).punto : undefined}
+              />
+              <span className="truncate">
+                {filtroAsignatura === 'todas'
+                  ? 'Asignatura'
+                  : filtroAsignatura === SIN_ASIGNATURA
+                    ? 'Sin asignatura'
+                    : filtroAsignatura}
+              </span>
+            </div>
+            <ul tabIndex={0} className="dropdown-content menu menu-sm flex-nowrap bg-base-100 border border-base-300 rounded-box shadow-lg w-72 max-h-80 overflow-y-auto z-30 mt-1">
+              <li className="menu-title">Asignatura</li>
+              {[
+                { valor: 'todas', nombre: 'Todas', total: proyectos.length },
+                ...asignaturas.map((a) => ({ valor: a.nombre, ...a })),
+                ...(sinAsignatura ? [{ valor: SIN_ASIGNATURA, nombre: 'Sin asignatura', total: sinAsignatura }] : []),
+              ].map((o) => (
+                <li key={o.valor}>
+                  <button
+                    className={filtroAsignatura === o.valor ? 'menu-active' : ''}
+                    onClick={() => {
+                      setFiltroAsignatura(o.valor)
+                      cerrarMenu()
+                    }}
+                  >
+                    {o.valor === 'todas' || o.valor === SIN_ASIGNATURA ? (
+                      <span className="size-2.5 shrink-0 rounded-full border border-dashed border-base-content/40" />
+                    ) : (
+                      <span className="size-2.5 shrink-0 rounded-full" style={colorAsignatura(o.nombre).punto} />
+                    )}
+                    <span className="flex-1 truncate" title={o.nombre}>{o.nombre}</span>
+                    <span className="text-xs opacity-50">{o.total}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="dropdown">
           <div tabIndex={0} role="button" className="btn btn-sm bg-base-100 border-base-300 font-normal">
@@ -433,15 +501,27 @@ function Minimapa({ columnas, ventana, scrollRef }) {
   )
 }
 
-// Etiqueta de color con el curso si la tarea viene de Classroom o Moodle
+// Etiqueta con la asignatura (cada una con su color) y el icono de Classroom/Moodle si viene de ahí
 function EtiquetaOrigen({ proyecto }) {
   const origen = integracionDe(proyecto)
-  if (!origen) return null
-  const { Icono } = origen
+  const asignatura = asignaturaDe(proyecto)
+  if (!asignatura && !origen) return null
+  const Icono = origen?.Icono
+  if (!asignatura)
+    return (
+      <span className={`mt-2 inline-flex max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${origen.color}`}>
+        <Icono className="size-3.5 shrink-0" />
+        <span className="truncate">{origen.corto}</span>
+      </span>
+    )
   return (
-    <span className={`mt-2 inline-flex max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${origen.color}`}>
-      <Icono className="size-3.5 shrink-0" />
-      <span className="truncate">{proyecto.origen.curso || origen.corto}</span>
+    <span
+      className="mt-2 inline-flex max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium"
+      style={colorAsignatura(asignatura).etiqueta}
+      title={origen ? `${asignatura} · ${origen.nombre}` : asignatura}
+    >
+      {Icono ? <Icono className="size-3.5 shrink-0" /> : <span className="size-1.5 shrink-0 rounded-full bg-current" />}
+      <span className="truncate">{asignatura}</span>
     </span>
   )
 }

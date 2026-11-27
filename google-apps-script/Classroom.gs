@@ -35,7 +35,36 @@ function doGet(e) {
   if (!e || !e.parameter || e.parameter.token !== TOKEN) {
     return json({ error: 'No autorizado: revisa el token de la URL' });
   }
+  if (e.parameter.accion === 'crearDoc') return json(crearDocumento(e.parameter));
   return json({ tareas: leerTareas() });
+}
+
+// Carpeta de Drive donde se guardan los documentos creados desde la app
+const CARPETA_DOCS = 'Proyectos';
+
+/** Crea un Google Doc para una tarea y devuelve su enlace. */
+function crearDocumento(p) {
+  const titulo = (p.titulo || 'Documento').slice(0, 200);
+  const nombre = p.asignatura ? titulo + ' · ' + p.asignatura : titulo;
+  const doc = DocumentApp.create(nombre);
+  const cuerpo = doc.getBody();
+  cuerpo.appendParagraph(titulo).setHeading(DocumentApp.ParagraphHeading.TITLE);
+  if (p.asignatura) cuerpo.appendParagraph(p.asignatura).setHeading(DocumentApp.ParagraphHeading.SUBTITLE);
+  if (p.fecha) cuerpo.appendParagraph('Entrega: ' + p.fecha);
+  cuerpo.appendParagraph('');
+  doc.saveAndClose();
+
+  // Moverlo a la carpeta "Proyectos" (se crea si no existe)
+  const carpetas = DriveApp.getFoldersByName(CARPETA_DOCS);
+  const carpeta = carpetas.hasNext() ? carpetas.next() : DriveApp.createFolder(CARPETA_DOCS);
+  DriveApp.getFileById(doc.getId()).moveTo(carpeta);
+
+  return { id: doc.getId(), url: doc.getUrl() };
+}
+
+/** Ejecuta esta función desde el editor para dar permisos de Docs y Drive (crea un documento de prueba). */
+function probarDocumento() {
+  Logger.log(JSON.stringify(crearDocumento({ titulo: 'Prueba', asignatura: 'Asignatura de prueba' })));
 }
 
 /** Ejecuta esta función desde el editor para dar permisos y ver el resultado en el registro. */

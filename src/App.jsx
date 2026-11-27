@@ -15,6 +15,7 @@ import { useIntegracion } from './hooks/useIntegracion'
 import { IconoBuscar, IconoMas } from './components/Iconos'
 import { supabase } from './supabase'
 import { aplicarTema } from './tema'
+import { listarAsignaturas } from './asignaturas'
 
 export default function App() {
   const [usuario, setUsuario] = useState(undefined) // undefined = comprobando sesión
@@ -223,6 +224,8 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
             estadoInicial={panel.estado}
             clave={abierto && clave(abierto)}
             usuario={usuario}
+            asignaturas={listarAsignaturas(proyectos).map((a) => a.nombre)}
+            classroomConectado={classroom.conectado}
             onCrear={(datos) => {
               guardar(datos)
               cerrarPanel()

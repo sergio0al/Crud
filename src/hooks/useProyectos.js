@@ -5,12 +5,13 @@ import { migrarEstado } from '../constants'
 export const PREFIJO = 'PRJ'
 export const clave = (p) => `${PREFIJO}-${p.numero}`
 
-const COLUMNAS = ['titulo', 'descripcion', 'fecha', 'estado', 'prioridad', 'origen']
+const COLUMNAS = ['titulo', 'descripcion', 'fecha', 'estado', 'prioridad', 'asignatura', 'documento', 'origen']
 const aFila = (datos) => Object.fromEntries(COLUMNAS.filter((k) => k in datos).map((k) => [k, datos[k] ?? null]))
 
 const desdeFila = (f, usuario) => ({
   ...f,
   creadorId: f.origen?.tipo ?? usuario.id, // 'classroom', 'moodle' o el propio usuario
+  asignatura: f.asignatura ?? f.origen?.curso ?? '', // ?? por si aún no existe la columna en la base de datos
   creado: Date.parse(f.creado),
   actualizado: f.actualizado ? Date.parse(f.actualizado) : null,
   comentarios: (f.comentarios ?? [])
@@ -46,7 +47,13 @@ export function useProyectos(perfil) {
 
   // Si algo falla en el servidor, se avisa y se recarga el estado real
   const fallo = (err) => {
-    setError(err.message ?? String(err))
+    const mensaje = err.message ?? String(err)
+    const columna = mensaje.match(/'(asignatura|documento)' column/)?.[1]
+    setError(
+      columna
+        ? `Falta la columna "${columna}" en la base de datos: ejecuta supabase/${columna}.sql en Supabase → SQL Editor.`
+        : mensaje,
+    )
     cargar()
   }
   const siguienteNumero = () => Math.max(0, ...actuales.current.map((p) => p.numero)) + 1
@@ -149,6 +156,7 @@ export function useProyectos(perfil) {
       fecha: p.fecha || new Date().toISOString().slice(0, 10),
       estado: migrarEstado(p.estado),
       prioridad: ['baja', 'media', 'alta'].includes(p.prioridad) ? p.prioridad : 'media',
+      asignatura: p.asignatura ?? p.origen?.curso ?? '',
       origen: p.origen ?? null,
       creado: p.creado ? new Date(p.creado).toISOString() : new Date().toISOString(),
       _comentarios: (p.comentarios ?? []).filter((c) => !c.anonimo && c.texto?.trim()),
