@@ -190,8 +190,8 @@ export default function ProyectoPanel({
                       </>
                     ) : (
                       <>
-                        <Avatar nombre={usuario.nombre} pequeno />
-                        {usuario.nombre}
+                        <Avatar nombre={datos.autorNombre ?? usuario.nombre} pequeno />
+                        {datos.autorNombre ?? usuario.nombre}
                       </>
                     )}
                   </span>

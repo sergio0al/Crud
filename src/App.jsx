@@ -16,6 +16,8 @@ import { IconoBuscar, IconoMas } from './components/Iconos'
 import { supabase } from './supabase'
 import { aplicarTema } from './tema'
 import { listarAsignaturas } from './asignaturas'
+import { useTableros } from './hooks/useTableros'
+import { CabeceraTabla, ModalCompartir, ModalConfirmarTabla, ModalNombreTabla } from './components/TablasCompartidas'
 
 export default function App() {
   const [usuario, setUsuario] = useState(undefined) // undefined = comprobando sesión
@@ -78,7 +80,21 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
   const [migrando, setMigrando] = useState(false)
   const [vistaElegida, setVista] = useState('resumen')
   const owner = esOwner(usuario)
-  const vista = vistaElegida === 'usuarios' && !owner ? 'resumen' : vistaElegida // solo el owner ve Usuarios
+  // Tablas compartidas: la vista 't:<id>' muestra el tablero de esa tabla
+  const tablas = useTableros(usuario.id)
+  const [modalTabla, setModalTabla] = useState(null) // null | { tipo: 'nueva' | 'renombrar' | 'compartir' | 'eliminar' | 'salir', tablero? }
+  const tableroActual = vistaElegida.startsWith('t:') ? tablas.tableros.find((t) => `t:${t.id}` === vistaElegida) : null
+  const vista =
+    vistaElegida === 'usuarios' && !owner
+      ? 'resumen' // solo el owner ve Usuarios
+      : vistaElegida.startsWith('t:') && !tableroActual
+        ? 'tablero' // la tabla ya no existe o te han quitado de ella
+        : vistaElegida
+  const enTablero = vista === 'tablero' || Boolean(tableroActual)
+  const personales = proyectos.filter((p) => p.tablero_id === null)
+  const delTablero = tableroActual ? proyectos.filter((p) => p.tablero_id === tableroActual.id) : personales
+  const conteos = Object.fromEntries(tablas.tableros.map((t) => [t.id, proyectos.filter((p) => p.tablero_id === t.id).length]))
+  const nuevo = (estado) => setPanel({ nuevo: true, estado, tablero_id: tableroActual?.id ?? null })
   const [busqueda, setBusqueda] = useState('')
   const [panel, setPanel] = useState(null) // null | { id } | { nuevo: true, estado? }
   const [aBorrar, setABorrar] = useState(null)
@@ -111,18 +127,21 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
 
   return (
     <div className="flex h-screen bg-base-200 text-base-content">
-      <Sidebar vista={vista} onVista={setVista} usuario={usuario} onSalir={onSalir} totalProyectos={proyectos.length}
+      <Sidebar vista={vista} onVista={setVista} usuario={usuario} onSalir={onSalir} totalProyectos={personales.length}
         integraciones={integraciones}
         onIntegracion={setConfigIntegracion}
         owner={owner}
+        tablas={tablas}
+        conteos={conteos}
+        onNuevaTabla={() => setModalTabla({ tipo: 'nueva' })}
       />
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="flex items-center gap-3 h-16 px-4 md:px-6 border-b border-base-300 bg-base-100 shrink-0">
           <h1 className="text-lg font-semibold flex-1 truncate">
-            {vista === 'resumen' ? `Hola, ${nombreCorto}` : vista === 'configuracion' ? 'Configuración' : vista === 'usuarios' ? 'Usuarios' : 'Tablero de proyectos'}
+            {vista === 'resumen' ? `Hola, ${nombreCorto}` : vista === 'configuracion' ? 'Configuración' : vista === 'usuarios' ? 'Usuarios' : tableroActual ? tableroActual.nombre : 'Tablero de proyectos'}
           </h1>
-          <button className="btn btn-primary hidden md:inline-flex h-10" onClick={() => setPanel({ nuevo: true })}>
+          <button className="btn btn-primary hidden md:inline-flex h-10" onClick={() => nuevo()}>
             <IconoMas className="size-4" />
             <span className="hidden sm:inline">Nuevo proyecto</span>
           </button>
@@ -134,7 +153,7 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
               value={busqueda}
               onChange={(e) => {
                 setBusqueda(e.target.value)
-                if (vista !== 'tablero') setVista('tablero')
+                if (!enTablero) setVista('tablero')
               }}
             />
             <kbd className="kbd kbd-xs">Ctrl K</kbd>
@@ -184,19 +203,31 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
           ) : vista === 'configuracion' ? (
             <Configuracion usuario={usuario} onActualizarUsuario={onActualizarUsuario} integraciones={integraciones} onIntegracion={setConfigIntegracion} />
           ) : vista === 'resumen' ? (
-            <Resumen proyectos={proyectos} onAbrir={(id) => setPanel({ id })} onIrTablero={() => setVista('tablero')} />
+            <Resumen proyectos={personales} onAbrir={(id) => setPanel({ id })} onIrTablero={() => setVista('tablero')} />
           ) : (
-            <Tablero
-              proyectos={proyectos}
-              busqueda={busqueda}
-              onBusqueda={setBusqueda}
-              buscadorMovil={buscadorMovil}
-              onMover={moverA}
-              onAbrir={(id) => setPanel({ id })}
-              onNuevo={(estado) => setPanel({ nuevo: true, estado })}
-              onEditar={(p) => setPanel({ id: p.id })}
-              onBorrar={setABorrar}
-            />
+            <>
+              {tableroActual && (
+                <CabeceraTabla
+                  tablero={tableroActual}
+                  onCompartir={() => setModalTabla({ tipo: 'compartir', tablero: tableroActual })}
+                  onRenombrar={() => setModalTabla({ tipo: 'renombrar', tablero: tableroActual })}
+                  onEliminar={() => setModalTabla({ tipo: 'eliminar', tablero: tableroActual })}
+                  onSalir={() => setModalTabla({ tipo: 'salir', tablero: tableroActual })}
+                />
+              )}
+              <Tablero
+                key={vista}
+                proyectos={delTablero}
+                busqueda={busqueda}
+                onBusqueda={setBusqueda}
+                buscadorMovil={buscadorMovil}
+                onMover={moverA}
+                onAbrir={(id) => setPanel({ id })}
+                onNuevo={nuevo}
+                onEditar={(p) => setPanel({ id: p.id })}
+                onBorrar={setABorrar}
+              />
+            </>
           )}
         </main>
       </div>
@@ -204,9 +235,9 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
       <BarraMovil
         vista={vista}
         onVista={setVista}
-        onNuevo={() => setPanel({ nuevo: true })}
+        onNuevo={() => nuevo()}
         onBuscar={() => {
-          setVista('tablero')
+          if (!enTablero) setVista('tablero')
           setTimeout(() => buscadorMovil.current?.focus(), 50)
         }}
         usuario={usuario}
@@ -214,7 +245,43 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
         integraciones={integraciones}
         onIntegracion={setConfigIntegracion}
         owner={owner}
+        tablas={tablas}
+        conteos={conteos}
+        onNuevaTabla={() => setModalTabla({ tipo: 'nueva' })}
       />
+
+      {(modalTabla?.tipo === 'nueva' || modalTabla?.tipo === 'renombrar') && (
+        <ModalNombreTabla
+          titulo={modalTabla.tipo === 'nueva' ? 'Nueva tabla compartida' : 'Cambiar nombre de la tabla'}
+          boton={modalTabla.tipo === 'nueva' ? 'Crear tabla' : 'Guardar'}
+          inicial={modalTabla.tablero?.nombre}
+          onGuardar={async (nombre) => {
+            if (modalTabla.tipo === 'renombrar') return tablas.renombrar(modalTabla.tablero.id, nombre)
+            const id = await tablas.crear(nombre)
+            setVista(`t:${id}`)
+          }}
+          onCerrar={() => setModalTabla(null)}
+        />
+      )}
+      {modalTabla?.tipo === 'compartir' && (
+        <ModalCompartir
+          tablero={tablas.tableros.find((t) => t.id === modalTabla.tablero.id) ?? modalTabla.tablero}
+          usuarioId={usuario.id}
+          api={tablas}
+          onCerrar={() => setModalTabla(null)}
+        />
+      )}
+      {(modalTabla?.tipo === 'eliminar' || modalTabla?.tipo === 'salir') && (
+        <ModalConfirmarTabla
+          tablero={modalTabla.tablero}
+          tipo={modalTabla.tipo}
+          onConfirmar={async () => {
+            await (modalTabla.tipo === 'eliminar' ? tablas.eliminar : tablas.salir)(modalTabla.tablero.id)
+            setVista('tablero')
+          }}
+          onCerrar={() => setModalTabla(null)}
+        />
+      )}
 
       {(abierto || panel?.nuevo) && (
         <Modal ancho="max-w-6xl" clase="h-[90vh] max-h-[90vh] overflow-hidden" onCerrar={cerrarPanel}>
@@ -227,7 +294,7 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
             asignaturas={listarAsignaturas(proyectos).map((a) => a.nombre)}
             classroomConectado={classroom.conectado}
             onCrear={(datos) => {
-              guardar(datos)
+              guardar({ ...datos, tablero_id: panel.tablero_id ?? null })
               cerrarPanel()
             }}
             onActualizar={(campos) => editar(abierto.id, campos)}

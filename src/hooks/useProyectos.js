@@ -5,24 +5,31 @@ import { migrarEstado } from '../constants'
 export const PREFIJO = 'PRJ'
 export const clave = (p) => `${PREFIJO}-${p.numero}`
 
-const COLUMNAS = ['titulo', 'descripcion', 'fecha', 'estado', 'prioridad', 'asignatura', 'documento', 'origen']
+const COLUMNAS = ['titulo', 'descripcion', 'fecha', 'estado', 'prioridad', 'asignatura', 'documento', 'origen', 'tablero_id']
 const aFila = (datos) => Object.fromEntries(COLUMNAS.filter((k) => k in datos).map((k) => [k, datos[k] ?? null]))
 
-const desdeFila = (f, usuario) => ({
+// nombres: Map id → nombre de los usuarios con los que comparto tableros (y yo)
+const desdeFila = (f, nombres) => ({
   ...f,
-  creadorId: f.origen?.tipo ?? usuario.id, // 'classroom', 'moodle' o el propio usuario
+  tablero_id: f.tablero_id ?? null, // null = tablero personal
+  creadorId: f.origen?.tipo ?? f.user_id, // 'classroom', 'moodle' o el usuario que la creó
+  autorNombre: nombres.get(f.user_id) ?? 'Usuario',
   asignatura: f.asignatura ?? f.origen?.curso ?? '', // ?? por si aún no existe la columna en la base de datos
   creado: Date.parse(f.creado),
   actualizado: f.actualizado ? Date.parse(f.actualizado) : null,
   comentarios: (f.comentarios ?? [])
-    .map((c) => ({ id: c.id, autorId: c.user_id, autorNombre: usuario.nombre, texto: c.texto, fecha: Date.parse(c.creado) }))
+    .map((c) => ({ id: c.id, autorId: c.user_id, autorNombre: nombres.get(c.user_id) ?? 'Usuario', texto: c.texto, fecha: Date.parse(c.creado) }))
     .sort((a, b) => a.fecha - b.fecha),
 })
 
 const CLAVE_LOCAL = 'proyectos'
 const claveMigrado = (usuario) => `migrado_supabase_${usuario.id}`
 
-/** Proyectos del usuario actual, guardados en Supabase (cada uno ve solo los suyos gracias a RLS). */
+/**
+ * Proyectos que puede ver el usuario: los de su tablero personal (tablero_id = null)
+ * y los de las tablas compartidas de las que es miembro (RLS en Supabase).
+ * Se actualizan solos cuando otro miembro cambia algo (tiempo real).
+ */
 export function useProyectos(perfil) {
   // Solo dependemos del id y el nombre: cambiar el tema u otros datos del perfil no recarga los proyectos
   const usuario = useMemo(() => ({ id: perfil.id, nombre: perfil.nombre }), [perfil.id, perfil.nombre])
@@ -30,14 +37,19 @@ export function useProyectos(perfil) {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   const actuales = useRef(proyectos)
+  const nombres = useRef(new Map([[usuario.id, usuario.nombre]]))
   useEffect(() => {
     actuales.current = proyectos
   }, [proyectos])
 
   const cargar = useCallback(async () => {
-    const { data, error } = await supabase.from('proyectos').select('*, comentarios(*)').order('numero')
+    const [{ data, error }, { data: gente }] = await Promise.all([
+      supabase.from('proyectos').select('*, comentarios(*)').order('numero'),
+      supabase.rpc('companeros'), // si aún no existe la función, solo se conoce el nombre propio
+    ])
+    nombres.current = new Map([...(gente ?? []).map((g) => [g.id, g.nombre]), [usuario.id, usuario.nombre]])
     if (error) setError(`No se pudieron cargar los proyectos: ${error.message}`)
-    else setProyectos(data.map((f) => desdeFila(f, usuario)))
+    else setProyectos(data.map((f) => desdeFila(f, nombres.current)))
     setCargando(false)
   }, [usuario])
 
@@ -45,38 +57,58 @@ export function useProyectos(perfil) {
     cargar()
   }, [cargar])
 
+  // Tiempo real: si otro miembro de una tabla compartida cambia algo, se recarga (agrupando cambios seguidos)
+  useEffect(() => {
+    let espera
+    const recargar = () => {
+      clearTimeout(espera)
+      espera = setTimeout(cargar, 500)
+    }
+    const canal = supabase
+      .channel(`proyectos-${usuario.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'proyectos' }, recargar)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comentarios' }, recargar)
+      .subscribe()
+    return () => {
+      clearTimeout(espera)
+      supabase.removeChannel(canal)
+    }
+  }, [cargar, usuario.id])
+
   // Si algo falla en el servidor, se avisa y se recarga el estado real
   const fallo = (err) => {
     const mensaje = err.message ?? String(err)
-    const columna = mensaje.match(/'(asignatura|documento)' column/)?.[1]
+    const columna = mensaje.match(/'(asignatura|documento|tablero_id)' column/)?.[1]
     setError(
       columna
-        ? `Falta la columna "${columna}" en la base de datos: ejecuta supabase/${columna}.sql en Supabase → SQL Editor.`
+        ? `Falta la columna "${columna}" en la base de datos: ejecuta supabase/${columna === 'tablero_id' ? 'compartidos' : columna}.sql en Supabase → SQL Editor.`
         : mensaje,
     )
     cargar()
   }
-  const siguienteNumero = () => Math.max(0, ...actuales.current.map((p) => p.numero)) + 1
+  // La numeración (PRJ-n) es independiente en cada tablero
+  const siguienteNumero = (tableroId = null) =>
+    Math.max(0, ...actuales.current.filter((p) => p.tablero_id === tableroId).map((p) => p.numero)) + 1
 
   const guardar = async (datos) => {
     if (datos.id) return editar(datos.id, datos)
     const { data, error } = await supabase
       .from('proyectos')
-      .insert({ ...aFila(datos), numero: siguienteNumero() })
+      .insert({ ...aFila(datos), numero: siguienteNumero(datos.tablero_id ?? null) })
       .select('*, comentarios(*)')
       .single()
     if (error) return fallo(error)
-    setProyectos((ps) => [...ps, desdeFila(data, usuario)])
+    setProyectos((ps) => [...ps, desdeFila(data, nombres.current)])
   }
 
-  // Añade varios de golpe (p. ej. tareas de Classroom)
+  // Añade varios de golpe al tablero personal (p. ej. tareas de Classroom)
   const importar = async (lista) => {
     if (!lista.length) return
     let numero = siguienteNumero() - 1
     const filas = lista.map((d) => ({ ...aFila(d), numero: ++numero }))
     const { data, error } = await supabase.from('proyectos').insert(filas).select('*, comentarios(*)')
     if (error) return fallo(error)
-    setProyectos((ps) => [...ps, ...data.map((f) => desdeFila(f, usuario))])
+    setProyectos((ps) => [...ps, ...data.map((f) => desdeFila(f, nombres.current))])
   }
 
   const editar = async (id, campos) => {
@@ -94,7 +126,7 @@ export function useProyectos(perfil) {
   const actualizarFechas = (tipo, fechas) => {
     const porId = new Map(fechas.map((f) => [f.id, f.entrega]))
     for (const p of actuales.current) {
-      const nueva = p.origen?.tipo === tipo ? porId.get(p.origen.id) : undefined
+      const nueva = p.origen?.tipo === tipo && p.tablero_id === null ? porId.get(p.origen.id) : undefined
       if (nueva && nueva !== p.fecha && p.estado !== 'hecho') editar(p.id, { fecha: nueva })
     }
   }

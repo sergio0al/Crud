@@ -1,12 +1,13 @@
 import { iniciales } from '../auth'
-import { IconoAjustes, IconoCasa, IconoLogo, IconoSalir, IconoTablero, IconoUsuarios } from './Iconos'
+import { IconoAjustes, IconoCasa, IconoLogo, IconoMas, IconoSalir, IconoTablero, IconoUsuarios } from './Iconos'
+import { IconoTabla } from './TablasCompartidas'
 
 const SECCIONES = [
   { titulo: 'General', items: [{ id: 'resumen', label: 'Resumen', Icono: IconoCasa }] },
   { titulo: 'Proyectos', items: [{ id: 'tablero', label: 'Tablero', Icono: IconoTablero }] },
 ]
 
-export default function Sidebar({ vista, onVista, usuario, onSalir, totalProyectos, integraciones, onIntegracion, owner }) {
+export default function Sidebar({ vista, onVista, usuario, onSalir, totalProyectos, integraciones, onIntegracion, owner, tablas, conteos, onNuevaTabla }) {
   return (
     <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-base-300 bg-base-100">
       <div className="flex items-center gap-3 h-16 px-5">
@@ -45,6 +46,55 @@ export default function Sidebar({ vista, onVista, usuario, onSalir, totalProyect
             </ul>
           </div>
         ))}
+
+        {tablas.disponible && (
+          <div>
+            <div className="flex items-center justify-between px-3 mb-1.5">
+              <p className="text-xs text-base-content/60">Tablas compartidas</p>
+              <button
+                onClick={onNuevaTabla}
+                className="btn btn-ghost btn-xs btn-square -mr-1.5"
+                title="Nueva tabla compartida"
+                aria-label="Nueva tabla compartida"
+              >
+                <IconoMas className="size-3.5" />
+              </button>
+            </div>
+            <ul className="space-y-0.5">
+              {tablas.tableros.map((t) => {
+                const activo = vista === `t:${t.id}`
+                return (
+                  <li key={t.id}>
+                    <button
+                      onClick={() => onVista(`t:${t.id}`)}
+                      title={t.nombre}
+                      className={`w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition ${
+                        activo ? 'bg-base-200 font-medium' : 'text-base-content/80 hover:bg-base-200/60'
+                      }`}
+                    >
+                      <IconoTabla nombre={t.nombre} />
+                      <span className="flex-1 min-w-0 truncate text-left">{t.nombre}</span>
+                      <span className="flex items-center gap-1 text-xs text-base-content/50" title={`${t.miembros} miembros`}>
+                        {conteos[t.id] ?? 0}
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
+              {tablas.tableros.length === 0 && (
+                <li>
+                  <button
+                    onClick={onNuevaTabla}
+                    className="w-full flex items-center gap-3 rounded-lg border border-dashed border-base-300 px-3 py-2 text-sm text-base-content/50 hover:bg-base-200/60 hover:text-base-content transition"
+                  >
+                    <IconoMas className="size-[18px] shrink-0" />
+                    <span className="flex-1 text-left">Crear tabla compartida</span>
+                  </button>
+                </li>
+              )}
+            </ul>
+          </div>
+        )}
 
         <div>
           <p className="px-3 mb-1.5 text-xs text-base-content/60">Integraciones</p>

@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { iniciales } from '../auth'
 import { IconoAjustes, IconoBuscar, IconoCasa, IconoMas, IconoSalir, IconoTablero, IconoUsuarios } from './Iconos'
+import { IconoTabla } from './TablasCompartidas'
 
 // Barra de navegación inferior, solo visible en móvil.
 // El menú "Cuenta" se abre con estado (no con foco), para que funcione también en Safari de iPhone.
-export default function BarraMovil({ vista, onVista, onNuevo, onBuscar, usuario, onSalir, integraciones, onIntegracion, owner }) {
+export default function BarraMovil({ vista, onVista, onNuevo, onBuscar, usuario, onSalir, integraciones, onIntegracion, owner, tablas, conteos, onNuevaTabla }) {
+  const enTabla = vista.startsWith('t:')
   const [cuentaAbierta, setCuentaAbierta] = useState(false)
   const cerrarY = (accion) => () => {
     setCuentaAbierta(false)
@@ -29,6 +31,25 @@ export default function BarraMovil({ vista, onVista, onNuevo, onBuscar, usuario,
                 <p className="text-xs text-base-content/60 truncate">{usuario.email}</p>
               </div>
             </div>
+            {tablas.disponible && (
+              <div className="border-b border-base-300 pb-1 mb-1">
+                <p className="px-3 pt-1 pb-1 text-xs text-base-content/60">Tablas compartidas</p>
+                {tablas.tableros.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={cerrarY(() => onVista(`t:${t.id}`))}
+                    className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-left hover:bg-base-200 active:bg-base-200 ${
+                      vista === `t:${t.id}` ? 'bg-base-200 font-medium' : ''
+                    }`}
+                  >
+                    <IconoTabla nombre={t.nombre} className="size-5 text-[10px]" />
+                    <span className="flex-1 truncate">{t.nombre}</span>
+                    <span className="text-xs text-base-content/50">{conteos[t.id] ?? 0}</span>
+                  </button>
+                ))}
+                <Opcion Icono={IconoMas} texto="Nueva tabla compartida" onClick={cerrarY(onNuevaTabla)} />
+              </div>
+            )}
             {integraciones.map(({ clave, info, estadoTexto }) => (
               <Opcion key={clave} Icono={info.Icono} texto={info.nombre} onClick={cerrarY(() => onIntegracion(clave))}>
                 <PuntoEstado estado={estadoTexto} />
@@ -50,10 +71,10 @@ export default function BarraMovil({ vista, onVista, onNuevo, onBuscar, usuario,
           onClick={() => setCuentaAbierta(!cuentaAbierta)}
           aria-expanded={cuentaAbierta}
           className={`relative flex flex-col items-center justify-center gap-1 text-xs transition ${
-            cuentaAbierta || vista === 'configuracion' || vista === 'usuarios' ? 'font-semibold text-base-content' : 'text-base-content/70'
+            cuentaAbierta || enTabla || vista === 'configuracion' || vista === 'usuarios' ? 'font-semibold text-base-content' : 'text-base-content/70'
           }`}
         >
-          {(cuentaAbierta || vista === 'configuracion' || vista === 'usuarios') && <span className="absolute top-0 inset-x-0 h-0.5 bg-base-content" />}
+          {(cuentaAbierta || enTabla || vista === 'configuracion' || vista === 'usuarios') && <span className="absolute top-0 inset-x-0 h-0.5 bg-base-content" />}
           <span className="relative grid place-items-center size-5 rounded-full bg-base-200 text-[9px] font-semibold">
             {iniciales(usuario.nombre)}
             {integraciones.some((i) => i.estadoTexto === 'error') && <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-error" />}

@@ -167,3 +167,8 @@ create table if not exists public.moodle_importados (
 );
 alter table public.moodle_importados enable row level security;
 revoke all on public.moodle_importados from anon, authenticated;
+
+-- =====================================================================
+-- Tablas compartidas (tableros con varios miembros): ejecutar después
+-- supabase/compartidos.sql — sustituye las políticas de proyectos y comentarios.
+-- =====================================================================
