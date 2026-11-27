@@ -143,9 +143,12 @@ export const estadoIntegracion = async (clave) => (await llamar(clave, { accion:
 export const guardarUrl = async (clave, url) => (await llamar(clave, { accion: 'guardar', url })).configurado
 export const desconectar = async (clave) => (await llamar(clave, { accion: 'borrar' })).configurado
 
-/** Crea un Google Doc para una tarea (con el script de Classroom) y devuelve su enlace */
-export const crearDocumento = async ({ titulo, asignatura, fecha }) =>
-  (await llamar('classroom', { accion: 'crearDocumento', titulo, asignatura, fecha })).url
+/**
+ * Crea un archivo de Google para una tarea (con el script de Classroom) y devuelve su enlace.
+ * tipo: 'documento' (Docs), 'hoja' (Sheets) o 'presentacion' (Slides).
+ */
+export const crearDocumento = async ({ titulo, asignatura, fecha, tipo = 'documento' }) =>
+  (await llamar('classroom', { accion: 'crearDocumento', titulo, asignatura, fecha, tipo })).url
 
 /** Crea un repositorio privado en el GitHub del usuario para una entrega y devuelve su enlace */
 export const crearRepositorio = async ({ titulo, asignatura, fecha, descripcion }) =>

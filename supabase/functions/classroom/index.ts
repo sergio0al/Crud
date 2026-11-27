@@ -93,6 +93,8 @@ Deno.serve(async (req) => {
       destino.searchParams.set('titulo', String(cuerpo.titulo ?? '').slice(0, 200))
       destino.searchParams.set('asignatura', String(cuerpo.asignatura ?? '').slice(0, 200))
       destino.searchParams.set('fecha', String(cuerpo.fecha ?? '').slice(0, 20))
+      // Tipo de archivo: documento (Docs), hoja (Sheets) o presentacion (Slides)
+      destino.searchParams.set('tipo', ['hoja', 'presentacion'].includes(cuerpo.tipo) ? cuerpo.tipo : 'documento')
 
       let datos: { url?: string; error?: string }
       try {

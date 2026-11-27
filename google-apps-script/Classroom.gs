@@ -39,32 +39,63 @@ function doGet(e) {
   return json({ tareas: leerTareas() });
 }
 
-// Carpeta de Drive donde se guardan los documentos creados desde la app
+// Carpeta de Drive donde se guardan los archivos creados desde la app
 const CARPETA_DOCS = 'Proyectos';
 
-/** Crea un Google Doc para una tarea y devuelve su enlace. */
+/**
+ * Crea un archivo de Google para una tarea y devuelve su enlace.
+ * p.tipo: 'documento' (Docs, por defecto), 'hoja' (Sheets) o 'presentacion' (Slides).
+ */
 function crearDocumento(p) {
   const titulo = (p.titulo || 'Documento').slice(0, 200);
   const nombre = p.asignatura ? titulo + ' · ' + p.asignatura : titulo;
-  const doc = DocumentApp.create(nombre);
-  const cuerpo = doc.getBody();
-  cuerpo.appendParagraph(titulo).setHeading(DocumentApp.ParagraphHeading.TITLE);
-  if (p.asignatura) cuerpo.appendParagraph(p.asignatura).setHeading(DocumentApp.ParagraphHeading.SUBTITLE);
-  if (p.fecha) cuerpo.appendParagraph('Entrega: ' + p.fecha);
-  cuerpo.appendParagraph('');
-  doc.saveAndClose();
+  const lineas = [p.asignatura, p.fecha ? 'Entrega: ' + p.fecha : ''].filter(Boolean);
+  let id, url;
+
+  if (p.tipo === 'hoja') {
+    const hoja = SpreadsheetApp.create(nombre);
+    const pestana = hoja.getSheets()[0];
+    pestana.setName('Entrega');
+    pestana.getRange('A1').setValue(titulo).setFontWeight('bold').setFontSize(14);
+    lineas.forEach(function (l, i) { pestana.getRange(i + 2, 1).setValue(l).setFontColor('#666666'); });
+    pestana.autoResizeColumn(1);
+    id = hoja.getId(); url = hoja.getUrl();
+  } else if (p.tipo === 'presentacion') {
+    const presentacion = SlidesApp.create(nombre);
+    const portada = presentacion.getSlides()[0];
+    const tituloForma = portada.getPlaceholder(SlidesApp.PlaceholderType.CENTERED_TITLE) || portada.getPlaceholder(SlidesApp.PlaceholderType.TITLE);
+    const subtitulo = portada.getPlaceholder(SlidesApp.PlaceholderType.SUBTITLE);
+    if (tituloForma) tituloForma.asShape().getText().setText(titulo);
+    if (subtitulo) subtitulo.asShape().getText().setText(lineas.join('\n'));
+    presentacion.saveAndClose();
+    id = presentacion.getId(); url = presentacion.getUrl();
+  } else {
+    const doc = DocumentApp.create(nombre);
+    const cuerpo = doc.getBody();
+    cuerpo.appendParagraph(titulo).setHeading(DocumentApp.ParagraphHeading.TITLE);
+    if (p.asignatura) cuerpo.appendParagraph(p.asignatura).setHeading(DocumentApp.ParagraphHeading.SUBTITLE);
+    if (p.fecha) cuerpo.appendParagraph('Entrega: ' + p.fecha);
+    cuerpo.appendParagraph('');
+    doc.saveAndClose();
+    id = doc.getId(); url = doc.getUrl();
+  }
 
   // Moverlo a la carpeta "Proyectos" (se crea si no existe)
   const carpetas = DriveApp.getFoldersByName(CARPETA_DOCS);
   const carpeta = carpetas.hasNext() ? carpetas.next() : DriveApp.createFolder(CARPETA_DOCS);
-  DriveApp.getFileById(doc.getId()).moveTo(carpeta);
+  DriveApp.getFileById(id).moveTo(carpeta);
 
-  return { id: doc.getId(), url: doc.getUrl() };
+  return { id: id, url: url };
 }
 
-/** Ejecuta esta función desde el editor para dar permisos de Docs y Drive (crea un documento de prueba). */
+/**
+ * Ejecuta esta función desde el editor para dar los permisos de Docs, Sheets, Slides y Drive.
+ * Crea un archivo de prueba de cada tipo en la carpeta "Proyectos" (puedes borrarlos después).
+ */
 function probarDocumento() {
-  Logger.log(JSON.stringify(crearDocumento({ titulo: 'Prueba', asignatura: 'Asignatura de prueba' })));
+  ['documento', 'hoja', 'presentacion'].forEach(function (tipo) {
+    Logger.log(tipo + ': ' + JSON.stringify(crearDocumento({ titulo: 'Prueba', asignatura: 'Asignatura de prueba', tipo: tipo })));
+  });
 }
 
 /** Ejecuta esta función desde el editor para dar permisos y ver el resultado en el registro. */

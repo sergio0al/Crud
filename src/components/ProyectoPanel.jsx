@@ -357,6 +357,28 @@ function Descripcion({ creando, valor, onCambiar }) {
   )
 }
 
+// Icono de Google Sheets (hoja verde con cuadrícula)
+function IconoSheets({ className = 'size-6' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path d="M14.5 2H6.5A1.5 1.5 0 0 0 5 3.5v17A1.5 1.5 0 0 0 6.5 22h11a1.5 1.5 0 0 0 1.5-1.5V6.5z" fill="#0F9D58" />
+      <path d="M14.5 2v3a1.5 1.5 0 0 0 1.5 1.5h3z" fill="#87CEAC" />
+      <path d="M8 11h8v7H8zM8 14.5h8M12 11v7" fill="none" stroke="#fff" strokeWidth={1.3} />
+    </svg>
+  )
+}
+
+// Icono de Google Slides (hoja amarilla con diapositiva)
+function IconoSlides({ className = 'size-6' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path d="M14.5 2H6.5A1.5 1.5 0 0 0 5 3.5v17A1.5 1.5 0 0 0 6.5 22h11a1.5 1.5 0 0 0 1.5-1.5V6.5z" fill="#F4B400" />
+      <path d="M14.5 2v3a1.5 1.5 0 0 0 1.5 1.5h3z" fill="#FADA80" />
+      <rect x="8" y="11" width="8" height="6" rx="0.8" fill="none" stroke="#fff" strokeWidth={1.4} />
+    </svg>
+  )
+}
+
 // Icono de Google Docs (hoja azul con líneas)
 function IconoDocs({ className = 'size-6' }) {
   return (
@@ -394,58 +416,76 @@ function TarjetaEnlace({ href, icono, colorIcono, titulo, subtitulo }) {
   )
 }
 
-// Google Doc de la tarea: la primera vez se crea (con el script de Classroom) y después siempre abre el mismo
+// Tipos de archivo de Google que se pueden crear para una tarea
+const TIPOS_GOOGLE = [
+  { tipo: 'documento', nombre: 'Documento', titulo: 'Documento de Google', app: 'Google Docs', Icono: IconoDocs, fondo: 'bg-[#4285F4]/10', ruta: '/document/' },
+  { tipo: 'hoja', nombre: 'Hoja de cálculo', titulo: 'Hoja de cálculo de Google', app: 'Google Sheets', Icono: IconoSheets, fondo: 'bg-[#0F9D58]/10', ruta: '/spreadsheets/' },
+  { tipo: 'presentacion', nombre: 'Presentación', titulo: 'Presentación de Google', app: 'Google Slides', Icono: IconoSlides, fondo: 'bg-[#F4B400]/15', ruta: '/presentation/' },
+]
+const tipoDeEnlace = (url = '') => TIPOS_GOOGLE.find((t) => url.includes(t.ruta)) ?? TIPOS_GOOGLE[0]
+
+// Archivo de Google de la tarea: se elige el tipo (documento, hoja o presentación) la primera vez
+// y después siempre abre el mismo
 function TarjetaDocumento({ proyecto, disponible, onGuardar }) {
-  const [creando, setCreando] = useState(false)
+  const [creando, setCreando] = useState(null) // tipo que se está creando
   const [error, setError] = useState('')
 
-  if (proyecto.documento)
+  if (proyecto.documento) {
+    const t = tipoDeEnlace(proyecto.documento)
     return (
-      <TarjetaEnlace
-        href={proyecto.documento}
-        icono={<IconoDocs />}
-        colorIcono="bg-[#4285F4]/10"
-        titulo="Documento de Google"
-        subtitulo="Abrir en Google Docs"
-      />
+      <TarjetaEnlace href={proyecto.documento} icono={<t.Icono />} colorIcono={t.fondo} titulo={t.titulo} subtitulo={`Abrir en ${t.app}`} />
     )
+  }
 
-  const crear = async () => {
+  const crear = async (tipo) => {
     setError('')
-    setCreando(true)
+    setCreando(tipo)
     // Se abre la pestaña ya (con el clic) para que el navegador no la bloquee, y luego se le pone el enlace
     const ventana = window.open('', '_blank')
     try {
-      const url = await crearDocumento({ titulo: proyecto.titulo, asignatura: asignaturaDe(proyecto), fecha: proyecto.fecha })
+      const url = await crearDocumento({ titulo: proyecto.titulo, asignatura: asignaturaDe(proyecto), fecha: proyecto.fecha, tipo })
       onGuardar(url)
       if (ventana) ventana.location.href = url
     } catch (err) {
       ventana?.close()
       setError(err.message)
     } finally {
-      setCreando(false)
+      setCreando(null)
     }
   }
 
   return (
     <div>
-      <button
-        className={`${CLASE_TARJETA} border-dashed`}
-        disabled={!disponible || creando}
-        title={disponible ? 'Crea un documento de Google para esta tarea' : 'Conecta Classroom para poder crear documentos'}
-        onClick={crear}
-      >
-        <span className="grid place-items-center size-10 shrink-0 rounded-lg bg-[#4285F4]/10">
-          {creando ? <span className="loading loading-spinner loading-sm text-[#4285F4]" /> : <IconoDocs />}
-        </span>
-        <span className="flex-1 min-w-0">
-          <span className="block text-sm font-medium">{creando ? 'Creando documento…' : 'Crear documento de Google'}</span>
-          <span className="block truncate text-xs text-base-content/60">
-            {disponible ? 'Se guarda en tu Drive, carpeta Proyectos' : 'Conecta Classroom para usarlo'}
+      <div className={`${CLASE_TARJETA} border-dashed flex-col items-stretch gap-2 hover:shadow-none`}>
+        <div className="flex items-center gap-3">
+          <span className="grid place-items-center size-10 shrink-0 rounded-lg bg-[#4285F4]/10">
+            {creando ? <span className="loading loading-spinner loading-sm text-[#4285F4]" /> : <IconoDocs />}
           </span>
-        </span>
-        {!creando && <IconoMas className="size-4 shrink-0 text-base-content/30 group-hover:text-base-content/70 transition" />}
-      </button>
+          <span className="flex-1 min-w-0">
+            <span className="block text-sm font-medium">
+              {creando ? `Creando ${TIPOS_GOOGLE.find((t) => t.tipo === creando).nombre.toLowerCase()}…` : 'Crear archivo de Google'}
+            </span>
+            <span className="block truncate text-xs text-base-content/60">
+              {disponible ? 'Elige el tipo · se guarda en tu Drive, carpeta Proyectos' : 'Conecta Classroom para usarlo'}
+            </span>
+          </span>
+        </div>
+        <div className="grid grid-cols-3 gap-1.5">
+          {TIPOS_GOOGLE.map((t) => (
+            <button
+              key={t.tipo}
+              type="button"
+              disabled={!disponible || Boolean(creando)}
+              onClick={() => crear(t.tipo)}
+              title={disponible ? `Crear ${t.nombre.toLowerCase()} de Google para esta tarea` : 'Conecta Classroom para poder crear archivos'}
+              className="flex flex-col items-center gap-1 rounded-md border border-base-300 px-1 py-2 text-[11px] font-medium transition hover:border-base-content/30 hover:bg-base-200/60 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <t.Icono className="size-5" />
+              {t.nombre}
+            </button>
+          ))}
+        </div>
+      </div>
       {error && <p className="mt-1 px-1 text-xs text-error">{error}</p>}
     </div>
   )
