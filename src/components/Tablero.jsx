@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ESTADOS, PRIORIDADES } from '../constants'
 import { clave } from '../hooks/useProyectos'
+import { integracionDe } from '../integraciones'
 import {
   IconoBuscar,
   IconoCalendario,
@@ -10,7 +11,6 @@ import {
   IconoMas,
   IconoOrden,
   IconoPrioridad,
-  IconoClassroom,
   IconoPuntos,
 } from './Iconos'
 
@@ -332,12 +332,7 @@ export default function Tablero({ proyectos, busqueda, onBusqueda, buscadorMovil
                         <p className="mt-1 text-xs text-base-content/60 line-clamp-2">{vistaPrevia(p.descripcion)}</p>
                       )}
 
-                      {p.origen?.tipo === 'classroom' && (
-                        <span className="mt-2 inline-flex max-w-full items-center gap-1 rounded-md bg-success/10 px-1.5 py-0.5 text-[11px] font-medium text-success">
-                          <IconoClassroom className="size-3.5 shrink-0" />
-                          <span className="truncate">{p.origen.curso || 'Classroom'}</span>
-                        </span>
-                      )}
+                      <EtiquetaOrigen proyecto={p} />
 
                       <div className="mt-3 flex items-center gap-3 text-xs text-base-content/60">
                         <span className={p.estado === 'hecho' ? 'line-through' : ''}>{clave(p)}</span>
@@ -435,5 +430,18 @@ function Minimapa({ columnas, ventana, scrollRef }) {
         />
       </div>
     </div>
+  )
+}
+
+// Etiqueta de color con el curso si la tarea viene de Classroom o Moodle
+function EtiquetaOrigen({ proyecto }) {
+  const origen = integracionDe(proyecto)
+  if (!origen) return null
+  const { Icono } = origen
+  return (
+    <span className={`mt-2 inline-flex max-w-full items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${origen.color}`}>
+      <Icono className="size-3.5 shrink-0" />
+      <span className="truncate">{proyecto.origen.curso || origen.corto}</span>
+    </span>
   )
 }

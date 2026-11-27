@@ -4,8 +4,10 @@ import { IconoCerrar } from './Iconos'
 const formatear = (ms) =>
   new Date(ms).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
 
-export default function ClassroomConfig({ classroom, onCerrar }) {
-  const { conectado, conectar, quitar, cargando, error, ultima, sincronizarAhora } = classroom
+/** Ventana para conectar una integración (Classroom o Moodle). El enlace solo lo guarda el servidor. */
+export default function IntegracionConfig({ integracion, onCerrar }) {
+  const { info, conectado, conectar, quitar, cargando, error, ultima, sincronizarAhora } = integracion
+  const { Icono } = info
   const [texto, setTexto] = useState('')
   const [aviso, setAviso] = useState('')
   const [guardando, setGuardando] = useState(false)
@@ -13,15 +15,13 @@ export default function ClassroomConfig({ classroom, onCerrar }) {
   const guardar = async (e) => {
     e.preventDefault()
     const limpio = texto.trim()
-    if (!/^https:\/\/script\.google(usercontent)?\.com\//.test(limpio)) {
-      return setAviso('La URL debe ser la de la aplicación web de Google Apps Script (https://script.google.com/...).')
-    }
-    if (!/[?&]token=/.test(limpio)) return setAviso('Falta el token al final de la URL: ...?token=TU_CLAVE')
+    const problema = info.validar(limpio)
+    if (problema) return setAviso(problema)
     setAviso('')
     setGuardando(true)
     try {
       await conectar(limpio)
-      setTexto('') // no se queda en pantalla: solo la conoce el servidor
+      setTexto('') // no se queda en pantalla: solo lo conoce el servidor
     } catch (err) {
       setAviso(err.message)
     } finally {
@@ -32,11 +32,14 @@ export default function ClassroomConfig({ classroom, onCerrar }) {
   return (
     <>
       <div className="flex items-start justify-between gap-4 px-6 pt-5 pb-4 border-b border-base-300">
-        <div>
-          <h3 className="text-base font-semibold">Google Classroom</h3>
-          <p className="text-xs text-base-content/60 mt-0.5">
-            Cada correo de “Nueva tarea” se convierte en un proyecto en <strong>Por hacer</strong>.
-          </p>
+        <div className="flex gap-3">
+          <span className={`grid place-items-center size-10 shrink-0 rounded-lg ${info.color}`}>
+            <Icono className="size-5" />
+          </span>
+          <div>
+            <h3 className="text-base font-semibold">{info.nombre}</h3>
+            <p className="text-xs text-base-content/60 mt-0.5">{info.descripcion}</p>
+          </div>
         </div>
         <button className="btn btn-ghost btn-sm btn-square" onClick={onCerrar} aria-label="Cerrar">
           <IconoCerrar className="size-4" />
@@ -69,41 +72,34 @@ export default function ClassroomConfig({ classroom, onCerrar }) {
         )}
 
         <form onSubmit={guardar} className="space-y-2">
-          <label className="text-xs font-medium text-base-content/70" htmlFor="url-classroom">
-            {conectado ? 'Cambiar la URL del script' : 'URL del script (aplicación web)'}
+          <label className="text-xs font-medium text-base-content/70" htmlFor={`url-${info.clave}`}>
+            {conectado ? `Cambiar: ${info.etiquetaUrl.toLowerCase()}` : info.etiquetaUrl}
           </label>
           <input
-            id="url-classroom"
+            id={`url-${info.clave}`}
             className="input w-full font-mono text-xs"
-            placeholder="https://script.google.com/macros/s/.../exec?token=TU_CLAVE"
+            placeholder={info.placeholder}
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             autoComplete="off"
           />
           <p className="text-xs text-base-content/50">
-            🔒 Se guarda solo en el servidor. Nadie (ni tú desde aquí) puede volver a verla; si la cambias, pega la nueva.
+            🔒 Se guarda solo en el servidor. Nadie (ni tú desde aquí) puede volver a verlo; si lo cambias, pega el nuevo.
           </p>
           {aviso && <p className="text-xs text-error">{aviso}</p>}
           <button type="submit" className="btn btn-sm btn-primary" disabled={guardando || !texto.trim()}>
             {guardando && <span className="loading loading-spinner loading-xs" />}
-            {conectado ? 'Guardar nueva URL' : 'Conectar'}
+            {conectado ? 'Guardar nuevo enlace' : 'Conectar'}
           </button>
         </form>
 
         <details className="rounded-lg border border-base-300 px-4 py-3">
           <summary className="cursor-pointer font-medium">¿Cómo lo conecto?</summary>
           <ol className="list-decimal pl-5 mt-3 space-y-1.5 text-base-content/80">
-            <li>Abre <strong>script.google.com</strong> con la cuenta donde te llegan los correos de Classroom.</li>
-            <li>Crea un proyecto nuevo y pega el contenido de <code>google-apps-script/Classroom.gs</code>.</li>
-            <li>Cambia <code>TOKEN</code> por una clave tuya.</li>
-            <li>Ejecuta la función <code>probar</code> y acepta los permisos de Gmail.</li>
-            <li>
-              <strong>Implementar → Nueva implementación → Aplicación web</strong>. Ejecutar como: <em>Yo</em>. Acceso:{' '}
-              <em>Cualquier usuario</em>.
-            </li>
-            <li>Copia la URL, añade <code>?token=TU_CLAVE</code> al final y pégala aquí.</li>
+            {info.guia.map((paso) => (
+              <li key={paso}>{paso}</li>
+            ))}
           </ol>
-          <p className="mt-3 text-xs text-base-content/60">Tienes la guía completa en CLASSROOM.md.</p>
         </details>
       </div>
     </>

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../supabase'
 import { migrarEstado } from '../constants'
-import { CREADOR_CLASSROOM } from '../classroom'
 
 export const PREFIJO = 'PRJ'
 export const clave = (p) => `${PREFIJO}-${p.numero}`
@@ -11,7 +10,7 @@ const aFila = (datos) => Object.fromEntries(COLUMNAS.filter((k) => k in datos).m
 
 const desdeFila = (f, usuario) => ({
   ...f,
-  creadorId: f.origen?.tipo === 'classroom' ? CREADOR_CLASSROOM : usuario.id,
+  creadorId: f.origen?.tipo ?? usuario.id, // 'classroom', 'moodle' o el propio usuario
   creado: Date.parse(f.creado),
   actualizado: f.actualizado ? Date.parse(f.actualizado) : null,
   comentarios: (f.comentarios ?? [])
@@ -84,6 +83,15 @@ export function useProyectos(perfil) {
     if (error) fallo(error)
   }
 
+  // Si el profesor cambia la fecha de entrega (Moodle), se actualiza en las tareas aún sin terminar
+  const actualizarFechas = (tipo, fechas) => {
+    const porId = new Map(fechas.map((f) => [f.id, f.entrega]))
+    for (const p of actuales.current) {
+      const nueva = p.origen?.tipo === tipo ? porId.get(p.origen.id) : undefined
+      if (nueva && nueva !== p.fecha && p.estado !== 'hecho') editar(p.id, { fecha: nueva })
+    }
+  }
+
   const moverA = (id, estado) => {
     const p = actuales.current.find((x) => x.id === id)
     if (p && p.estado !== estado) editar(id, { estado })
@@ -120,8 +128,20 @@ export function useProyectos(perfil) {
   })()
 
   const migrarLocales = async () => {
+    // No subir lo que ya está en la cuenta: tareas de Classroom/Moodle ya importadas
+    // ni repetidas dentro del propio navegador
+    const yaEnCuenta = new Set(actuales.current.filter((p) => p.origen?.id).map((p) => `${p.origen.tipo}:${p.origen.id}`))
+    const vistos = new Set()
+    const aSubir = locales.filter((p) => {
+      if (!p.origen?.id) return true
+      const k = `${p.origen.tipo}:${p.origen.id}`
+      if (yaEnCuenta.has(k) || vistos.has(k)) return false
+      vistos.add(k)
+      return true
+    })
+
     let numero = siguienteNumero() - 1
-    const filas = locales.map((p) => ({
+    const filas = aSubir.map((p) => ({
       id: crypto.randomUUID(),
       numero: ++numero,
       titulo: p.titulo || 'Sin título',
@@ -133,8 +153,10 @@ export function useProyectos(perfil) {
       creado: p.creado ? new Date(p.creado).toISOString() : new Date().toISOString(),
       _comentarios: (p.comentarios ?? []).filter((c) => !c.anonimo && c.texto?.trim()),
     }))
-    const { error } = await supabase.from('proyectos').insert(filas.map(({ _comentarios: _c, ...f }) => f))
-    if (error) return fallo(error)
+    if (filas.length) {
+      const { error } = await supabase.from('proyectos').insert(filas.map(({ _comentarios: _c, ...f }) => f))
+      if (error) return fallo(error)
+    }
 
     const comentarios = filas.flatMap((f) =>
       f._comentarios.map((c) => ({ proyecto_id: f.id, texto: c.texto, creado: new Date(c.fecha ?? Date.now()).toISOString() })),
@@ -168,6 +190,7 @@ export function useProyectos(perfil) {
     limpiarError: () => setError(''),
     guardar,
     importar,
+    actualizarFechas,
     editar,
     moverA,
     borrar,

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { COLORES, TEMA_INICIAL, cargarTema, esHex, guardarTema } from '../tema'
 import { actualizarPerfil } from '../auth'
-import { IconoCheck, IconoClassroom, IconoPrioridad } from './Iconos'
+import { IconoCheck, IconoPrioridad } from './Iconos'
 
 const MODOS = [
   { value: 'claro', label: 'Claro' },
@@ -15,7 +15,7 @@ const OPCIONES_ESQUINAS = [
   { value: 'redondas', label: 'Redondas', clase: 'rounded-2xl' },
 ]
 
-export default function Configuracion({ usuario, onActualizarUsuario, onClassroom, estadoClassroom }) {
+export default function Configuracion({ usuario, onActualizarUsuario, integraciones, onIntegracion }) {
   const [tema, setTema] = useState(cargarTema)
   const [hex, setHex] = useState(tema.color ?? '')
 
@@ -141,24 +141,22 @@ export default function Configuracion({ usuario, onActualizarUsuario, onClassroo
         <p className="text-sm text-base-content/60">Conecta servicios externos para crear proyectos automáticamente.</p>
       </div>
 
-      <Tarjeta titulo="Google Classroom" descripcion="Crea un proyecto por cada correo de “Nueva tarea”.">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="grid place-items-center size-10 rounded-lg bg-success/10 text-success">
-            <IconoClassroom className="size-5" />
-          </span>
-          <span className="flex items-center gap-2 text-sm flex-1">
-            <span
-              className={`size-2 rounded-full ${
-                estadoClassroom === 'conectado' ? 'bg-success' : estadoClassroom === 'error' ? 'bg-error' : 'bg-base-content/20'
-              }`}
-            />
-            {estadoClassroom === 'conectado' ? 'Conectado' : estadoClassroom === 'error' ? 'Conectado con errores' : 'Sin conectar'}
-          </span>
-          <button className="btn btn-sm" onClick={onClassroom}>
-            {estadoClassroom === 'desconectado' ? 'Conectar' : 'Gestionar'}
-          </button>
-        </div>
-      </Tarjeta>
+      {integraciones.map(({ clave, info, estadoTexto }) => (
+        <Tarjeta key={clave} titulo={info.nombre} descripcion={info.descripcion}>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className={`grid place-items-center size-10 rounded-lg ${info.color}`}>
+              <info.Icono className="size-5" />
+            </span>
+            <span className="flex items-center gap-2 text-sm flex-1">
+              <span className={`size-2 rounded-full ${estadoTexto === 'conectado' ? 'bg-success' : estadoTexto === 'error' ? 'bg-error' : 'bg-base-content/20'}`} />
+              {estadoTexto === 'conectado' ? 'Conectado' : estadoTexto === 'error' ? 'Conectado con errores' : 'Sin conectar'}
+            </span>
+            <button className="btn btn-sm" onClick={() => onIntegracion(clave)}>
+              {estadoTexto === 'desconectado' ? 'Conectar' : 'Gestionar'}
+            </button>
+          </div>
+        </Tarjeta>
+      ))}
 
       <div className="flex justify-end">
         <button

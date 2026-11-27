@@ -1,12 +1,12 @@
 import { iniciales } from '../auth'
-import { IconoAjustes, IconoCasa, IconoClassroom, IconoLogo, IconoSalir, IconoTablero, IconoUsuarios } from './Iconos'
+import { IconoAjustes, IconoCasa, IconoLogo, IconoSalir, IconoTablero, IconoUsuarios } from './Iconos'
 
 const SECCIONES = [
   { titulo: 'General', items: [{ id: 'resumen', label: 'Resumen', Icono: IconoCasa }] },
   { titulo: 'Proyectos', items: [{ id: 'tablero', label: 'Tablero', Icono: IconoTablero }] },
 ]
 
-export default function Sidebar({ vista, onVista, usuario, onSalir, totalProyectos, onClassroom, estadoClassroom, owner }) {
+export default function Sidebar({ vista, onVista, usuario, onSalir, totalProyectos, integraciones, onIntegracion, owner }) {
   return (
     <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-base-300 bg-base-100">
       <div className="flex items-center gap-3 h-16 px-5">
@@ -48,19 +48,17 @@ export default function Sidebar({ vista, onVista, usuario, onSalir, totalProyect
 
         <div>
           <p className="px-3 mb-1.5 text-xs text-base-content/60">Integraciones</p>
-          <button
-            onClick={onClassroom}
-            className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-base-content/80 hover:bg-base-200/60 transition"
-          >
-            <IconoClassroom className="size-[18px] shrink-0" />
-            <span className="flex-1 text-left">Classroom</span>
-            <span
-              title={estadoClassroom}
-              className={`size-2 rounded-full ${
-                estadoClassroom === 'conectado' ? 'bg-success' : estadoClassroom === 'error' ? 'bg-error' : 'bg-base-content/20'
-              }`}
-            />
-          </button>
+          {integraciones.map(({ clave, info: { corto, Icono }, estadoTexto }) => (
+            <button
+              key={clave}
+              onClick={() => onIntegracion(clave)}
+              className="w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-base-content/80 hover:bg-base-200/60 transition"
+            >
+              <Icono className="size-[18px] shrink-0" />
+              <span className="flex-1 text-left">{corto}</span>
+              <span title={estadoTexto} className={`size-2 rounded-full ${estadoTexto === 'conectado' ? 'bg-success' : estadoTexto === 'error' ? 'bg-error' : 'bg-base-content/20'}`} />
+            </button>
+          ))}
         </div>
 
         <div>

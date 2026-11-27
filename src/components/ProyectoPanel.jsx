@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { ESTADOS, PRIORIDADES, findOption } from '../constants'
 import { iniciales } from '../auth'
 import Markdown from './Markdown'
-import { IconoCerrar, IconoClassroom, IconoEnlace, IconoPrioridad, IconoPuntos, IconoTarea } from './Iconos'
-import { CREADOR_CLASSROOM } from '../classroom'
+import { IconoCerrar, IconoEnlace, IconoPrioridad, IconoPuntos, IconoTarea } from './Iconos'
+import { integracionDe } from '../integraciones'
 
 const ESTILO_ESTADO = {
   por_hacer: 'bg-base-200 text-base-content border-base-300 hover:bg-base-300',
@@ -49,6 +49,7 @@ export default function ProyectoPanel({
   const [error, setError] = useState('')
   const [detallesAbiertos, setDetallesAbiertos] = useState(true)
   const datos = creando ? borrador : proyecto
+  const origen = integracionDe(datos) // Classroom, Moodle o nada (creado a mano)
 
   const cambiar = (campos) => (creando ? setBorrador((b) => ({ ...b, ...campos })) : onActualizar(campos))
 
@@ -90,15 +91,16 @@ export default function ProyectoPanel({
         <div className="md:overflow-y-auto px-5 md:pl-8 md:pr-10 pb-8 space-y-6">
           <Titulo creando={creando} valor={datos.titulo} onCambiar={(titulo) => cambiar({ titulo })} />
 
-          {datos.origen?.tipo === 'classroom' && (
+          {origen && (
             <div className="flex flex-wrap items-center gap-2 -mt-3">
-              <span className="inline-flex items-center gap-1.5 rounded-md bg-success/10 px-2 py-1 text-xs font-medium text-success">
-                <IconoClassroom className="size-4" />
-                Google Classroom{datos.origen.curso && ` · ${datos.origen.curso}`}
+              <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium ${origen.color}`}>
+                <origen.Icono className="size-4" />
+                {origen.nombre}
+                {datos.origen.curso && ` · ${datos.origen.curso}`}
               </span>
               {datos.origen.enlace && (
                 <a href={datos.origen.enlace} target="_blank" rel="noreferrer" className="btn btn-xs btn-outline border-base-300 font-normal">
-                  <IconoEnlace className="size-3.5" /> Abrir en Classroom
+                  <IconoEnlace className="size-3.5" /> Abrir en {origen.corto}
                 </a>
               )}
             </div>
@@ -165,12 +167,12 @@ export default function ProyectoPanel({
 
                 <Fila etiqueta="Informador">
                   <span className="flex items-center gap-2 py-1">
-                    {datos.creadorId === CREADOR_CLASSROOM ? (
+                    {origen ? (
                       <>
-                        <span className="grid place-items-center size-6 rounded-full bg-success/15 text-success">
-                          <IconoClassroom className="size-3.5" />
+                        <span className={`grid place-items-center size-6 rounded-full ${origen.color}`}>
+                          <origen.Icono className="size-3.5" />
                         </span>
-                        Google Classroom
+                        {origen.nombre}
                       </>
                     ) : (
                       <>

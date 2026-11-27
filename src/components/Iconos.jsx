@@ -98,6 +98,10 @@ export const IconoLogo = (p) => (
   <svg viewBox="0 0 32 16" {...base} strokeWidth={2} {...p}><circle cx="5" cy="8" r="3.5" /><circle cx="27" cy="8" r="3.5" /><path d="M8.5 8h15" /></svg>
 )
 
+export const IconoMoodle = (p) => (
+  <svg viewBox="0 0 24 24" {...base} strokeWidth={1.7} {...p}><path d="m2 9 10-5 10 5-10 5L2 9Z" /><path d="M6 11v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5M22 9v6" /></svg>
+)
+
 export const IconoClassroom = (p) => (
   <svg viewBox="0 0 24 24" {...base} strokeWidth={1.7} {...p}><rect x="3" y="4" width="18" height="13" rx="2" /><circle cx="12" cy="9.5" r="2" /><path d="M8.5 14.5a3.5 3.5 0 0 1 7 0M8 21h8M12 17v4" /></svg>
 )

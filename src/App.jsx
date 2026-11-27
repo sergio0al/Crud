@@ -10,8 +10,8 @@ import Configuracion from './components/Configuracion'
 import Usuarios from './components/Usuarios'
 import ProyectoPanel from './components/ProyectoPanel'
 import Modal from './components/Modal'
-import ClassroomConfig from './components/ClassroomConfig'
-import { useClassroom } from './hooks/useClassroom'
+import IntegracionConfig from './components/IntegracionConfig'
+import { useIntegracion } from './hooks/useIntegracion'
 import { IconoBuscar, IconoMas } from './components/Iconos'
 import { supabase } from './supabase'
 import { aplicarTema } from './tema'
@@ -64,6 +64,7 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
     limpiarError,
     guardar,
     importar,
+    actualizarFechas,
     editar,
     moverA,
     borrar,
@@ -80,9 +81,14 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
   const [busqueda, setBusqueda] = useState('')
   const [panel, setPanel] = useState(null) // null | { id } | { nuevo: true, estado? }
   const [aBorrar, setABorrar] = useState(null)
-  const [configClassroom, setConfigClassroom] = useState(false)
-  const classroom = useClassroom(importar, !cargando && proyectosLocales === 0)
-  const estadoClassroom = !classroom.conectado ? 'desconectado' : classroom.error ? 'error' : 'conectado'
+  // Integraciones: crean proyectos solos a partir de Classroom y Moodle
+  const listo = !cargando && proyectosLocales === 0
+  const classroom = useIntegracion('classroom', importar, listo, actualizarFechas)
+  const moodle = useIntegracion('moodle', importar, listo, actualizarFechas)
+  const integraciones = [classroom, moodle]
+  const [configIntegracion, setConfigIntegracion] = useState(null) // null | 'classroom' | 'moodle'
+  const integracionAbierta = integraciones.find((i) => i.clave === configIntegracion)
+  const aviso = integraciones.find((i) => i.aviso)?.aviso
   const buscador = useRef(null)
   const buscadorMovil = useRef(null)
   const abierto = panel?.id ? proyectos.find((p) => p.id === panel.id) : null
@@ -105,8 +111,8 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
   return (
     <div className="flex h-screen bg-base-200 text-base-content">
       <Sidebar vista={vista} onVista={setVista} usuario={usuario} onSalir={onSalir} totalProyectos={proyectos.length}
-        onClassroom={() => setConfigClassroom(true)}
-        estadoClassroom={estadoClassroom}
+        integraciones={integraciones}
+        onIntegracion={setConfigIntegracion}
         owner={owner}
       />
 
@@ -175,7 +181,7 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
           ) : vista === 'usuarios' ? (
             <Usuarios usuario={usuario} />
           ) : vista === 'configuracion' ? (
-            <Configuracion usuario={usuario} onActualizarUsuario={onActualizarUsuario} onClassroom={() => setConfigClassroom(true)} estadoClassroom={estadoClassroom} />
+            <Configuracion usuario={usuario} onActualizarUsuario={onActualizarUsuario} integraciones={integraciones} onIntegracion={setConfigIntegracion} />
           ) : vista === 'resumen' ? (
             <Resumen proyectos={proyectos} onAbrir={(id) => setPanel({ id })} onIrTablero={() => setVista('tablero')} />
           ) : (
@@ -204,8 +210,8 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
         }}
         usuario={usuario}
         onSalir={onSalir}
-        onClassroom={() => setConfigClassroom(true)}
-        estadoClassroom={estadoClassroom}
+        integraciones={integraciones}
+        onIntegracion={setConfigIntegracion}
         owner={owner}
       />
 
@@ -230,15 +236,19 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
         </Modal>
       )}
 
-      {configClassroom && (
-        <Modal ancho="max-w-xl" onCerrar={() => setConfigClassroom(false)}>
-          <ClassroomConfig classroom={classroom} onCerrar={() => setConfigClassroom(false)} />
+      {integracionAbierta && (
+        <Modal ancho="max-w-xl" onCerrar={() => setConfigIntegracion(null)}>
+          <IntegracionConfig
+            key={integracionAbierta.clave}
+            integracion={integracionAbierta}
+            onCerrar={() => setConfigIntegracion(null)}
+          />
         </Modal>
       )}
 
-      {classroom.aviso && (
+      {aviso && (
         <div className="toast toast-center md:toast-end bottom-20 md:bottom-4 z-[1000]">
-          <div className="alert bg-neutral text-neutral-content border-0 text-sm shadow-lg">{classroom.aviso}</div>
+          <div className="alert bg-neutral text-neutral-content border-0 text-sm shadow-lg">{aviso}</div>
         </div>
       )}
 

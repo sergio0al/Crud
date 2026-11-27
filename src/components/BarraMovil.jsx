@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { iniciales } from '../auth'
-import { IconoAjustes, IconoBuscar, IconoCasa, IconoClassroom, IconoMas, IconoSalir, IconoTablero, IconoUsuarios } from './Iconos'
+import { IconoAjustes, IconoBuscar, IconoCasa, IconoMas, IconoSalir, IconoTablero, IconoUsuarios } from './Iconos'
 
 // Barra de navegación inferior, solo visible en móvil.
 // El menú "Cuenta" se abre con estado (no con foco), para que funcione también en Safari de iPhone.
-export default function BarraMovil({ vista, onVista, onNuevo, onBuscar, usuario, onSalir, onClassroom, estadoClassroom, owner }) {
+export default function BarraMovil({ vista, onVista, onNuevo, onBuscar, usuario, onSalir, integraciones, onIntegracion, owner }) {
   const [cuentaAbierta, setCuentaAbierta] = useState(false)
   const cerrarY = (accion) => () => {
     setCuentaAbierta(false)
@@ -29,9 +29,11 @@ export default function BarraMovil({ vista, onVista, onNuevo, onBuscar, usuario,
                 <p className="text-xs text-base-content/60 truncate">{usuario.email}</p>
               </div>
             </div>
-            <Opcion Icono={IconoClassroom} texto="Google Classroom" onClick={cerrarY(onClassroom)}>
-              <PuntoEstado estado={estadoClassroom} />
-            </Opcion>
+            {integraciones.map(({ clave, info, estadoTexto }) => (
+              <Opcion key={clave} Icono={info.Icono} texto={info.nombre} onClick={cerrarY(() => onIntegracion(clave))}>
+                <PuntoEstado estado={estadoTexto} />
+              </Opcion>
+            ))}
             {owner && <Opcion Icono={IconoUsuarios} texto="Usuarios" onClick={cerrarY(() => onVista('usuarios'))} />}
             <Opcion Icono={IconoAjustes} texto="Configuración" onClick={cerrarY(() => onVista('configuracion'))} />
             <Opcion Icono={IconoSalir} texto="Cerrar sesión" onClick={cerrarY(onSalir)} peligro />
@@ -54,7 +56,7 @@ export default function BarraMovil({ vista, onVista, onNuevo, onBuscar, usuario,
           {(cuentaAbierta || vista === 'configuracion' || vista === 'usuarios') && <span className="absolute top-0 inset-x-0 h-0.5 bg-base-content" />}
           <span className="relative grid place-items-center size-5 rounded-full bg-base-200 text-[9px] font-semibold">
             {iniciales(usuario.nombre)}
-            {estadoClassroom === 'error' && <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-error" />}
+            {integraciones.some((i) => i.estadoTexto === 'error') && <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-error" />}
           </span>
           Cuenta
         </button>
