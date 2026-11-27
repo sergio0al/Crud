@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
       const url = await leerUrl()
       if (!url) return responder({ error: 'Classroom no está conectado' }, 400)
 
-      let datos: { tareas?: Array<{ id: string }>; error?: string }
+      let datos: { tareas?: Array<{ id: string }>; entregadas?: Array<Record<string, string>> | null; error?: string }
       try {
         const r = await fetch(url, { redirect: 'follow' })
         datos = await r.json()
@@ -81,7 +81,15 @@ Deno.serve(async (req) => {
           .upsert(nuevas.map((t) => ({ user_id: userId, mensaje_id: t.id })), { onConflict: 'user_id,mensaje_id', ignoreDuplicates: true })
         if (error) return responder({ error: error.message }, 400)
       }
-      return responder({ total: tareas.length, nuevas })
+      // Tareas entregadas en Classroom (solo si el script tiene activado el servicio de Classroom)
+      const entregadas = Array.isArray(datos.entregadas)
+        ? datos.entregadas.slice(0, 1000).map((e) => ({
+            titulo: String(e?.titulo ?? '').slice(0, 300),
+            curso: String(e?.curso ?? '').slice(0, 300),
+            enlace: String(e?.enlace ?? '').slice(0, 500),
+          }))
+        : []
+      return responder({ total: tareas.length, nuevas, entregadas })
     }
 
     // Crea un Google Doc para una tarea con el mismo script de Classroom (en la cuenta de Google del usuario)

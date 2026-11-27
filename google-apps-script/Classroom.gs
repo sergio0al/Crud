@@ -1,6 +1,7 @@
 /**
  * Lee los correos de Google Classroom de "Nueva tarea" de tu Gmail
  * y los devuelve en JSON para que la app los convierta en proyectos.
+ * También mira en Classroom qué tareas has entregado, para pasarlas a Hecho.
  *
  * Instrucciones completas en CLASSROOM.md (raíz del proyecto).
  */
@@ -36,7 +37,61 @@ function doGet(e) {
     return json({ error: 'No autorizado: revisa el token de la URL' });
   }
   if (e.parameter.accion === 'crearDoc') return json(crearDocumento(e.parameter));
-  return json({ tareas: leerTareas() });
+  return json({ tareas: leerTareas(), entregadas: entregadasSiSePuede() });
+}
+
+/**
+ * Tareas de Classroom que ya has entregado (o que el profesor ha devuelto), para pasarlas a Hecho.
+ * Necesita el servicio avanzado "Google Classroom API" (Servicios → + → Google Classroom API).
+ * Si no está activado devuelve null y la app sigue funcionando igual.
+ */
+function entregadasSiSePuede() {
+  try {
+    return leerEntregadas();
+  } catch (err) {
+    return null;
+  }
+}
+
+// Recorre todas las páginas de una lista de la API de Classroom
+function todasLasPaginas(pedir, campo) {
+  const lista = [];
+  let pagina;
+  do {
+    const r = pedir(pagina ? { pageToken: pagina } : {});
+    (r[campo] || []).forEach(function (x) { lista.push(x); });
+    pagina = r.nextPageToken;
+  } while (pagina && lista.length < 2000);
+  return lista;
+}
+
+function leerEntregadas() {
+  const entregadas = [];
+  const cursos = todasLasPaginas(function (p) {
+    return Classroom.Courses.list(Object.assign({ studentId: 'me', courseStates: ['ACTIVE'], pageSize: 100 }, p));
+  }, 'courses');
+  cursos.forEach(function (curso) {
+    let entregas;
+    try {
+      entregas = todasLasPaginas(function (p) {
+        return Classroom.Courses.CourseWork.StudentSubmissions.list(
+          curso.id, '-', Object.assign({ userId: 'me', states: ['TURNED_IN', 'RETURNED'], pageSize: 100 }, p));
+      }, 'studentSubmissions');
+    } catch (err) {
+      Logger.log('No se pudieron leer las entregas de ' + curso.name + ': ' + err.message);
+      return; // clase sin permiso (por ejemplo, donde no eres alumno): se salta
+    }
+    if (!entregas.length) return;
+    const trabajos = {};
+    todasLasPaginas(function (p) {
+      return Classroom.Courses.CourseWork.list(curso.id, Object.assign({ pageSize: 100 }, p));
+    }, 'courseWork').forEach(function (t) { trabajos[t.id] = t; });
+    entregas.forEach(function (e) {
+      const t = trabajos[e.courseWorkId];
+      if (t) entregadas.push({ titulo: t.title || '', curso: curso.name || '', enlace: t.alternateLink || '', estado: e.state });
+    });
+  });
+  return entregadas;
 }
 
 // Carpeta de Drive donde se guardan los archivos creados desde la app
@@ -101,6 +156,11 @@ function probarDocumento() {
 /** Ejecuta esta función desde el editor para dar permisos y ver el resultado en el registro. */
 function probar() {
   Logger.log(JSON.stringify(leerTareas(), null, 2));
+}
+
+/** Ejecuta esta función para dar el permiso de Classroom y ver qué tareas tienes entregadas. */
+function probarEntregadas() {
+  Logger.log(JSON.stringify(leerEntregadas(), null, 2));
 }
 
 function leerTareas() {

@@ -131,6 +131,27 @@ export function useProyectos(perfil) {
     }
   }
 
+  // Tareas que ya están entregadas en Classroom: pasan a Hecho (solo las del tablero personal aún sin terminar).
+  // Se reconocen por el enlace de la tarea (…/a/<id>/…) o, si no, por título y curso.
+  const marcarEntregadas = (tipo, entregadas) => {
+    const idTarea = (enlace) => enlace?.match(/\/a\/([^/?#]+)/)?.[1]
+    const normal = (s) => (s ?? '').toLowerCase().replace(/\s+/g, ' ').trim()
+    const claveDe = (titulo, curso) => `${normal(titulo)}|${normal(curso)}`
+    const porEnlace = new Set(entregadas.map((e) => idTarea(e.enlace)).filter(Boolean))
+    const porTitulo = new Set(entregadas.map((e) => claveDe(e.titulo, e.curso)))
+    let cambiadas = 0
+    for (const p of actuales.current) {
+      if (p.origen?.tipo !== tipo || p.tablero_id !== null || p.estado === 'hecho') continue
+      const id = idTarea(p.origen.enlace)
+      const curso = p.origen.curso || p.asignatura
+      if ((id && porEnlace.has(id)) || porTitulo.has(claveDe(p.titulo, curso))) {
+        editar(p.id, { estado: 'hecho' })
+        cambiadas++
+      }
+    }
+    return cambiadas
+  }
+
   const moverA = (id, estado) => {
     const p = actuales.current.find((x) => x.id === id)
     if (p && p.estado !== estado) editar(id, { estado })
@@ -231,6 +252,7 @@ export function useProyectos(perfil) {
     guardar,
     importar,
     actualizarFechas,
+    marcarEntregadas,
     editar,
     moverA,
     borrar,

@@ -8,15 +8,16 @@ const CADA_MINUTOS = 5
  * El enlace nunca llega al navegador: solo sabemos si está "conectado" o no.
  * - `activo` evita importar antes de tener cargados (y migrados) los proyectos.
  * - `onFechas` recibe [{ id, entrega }] para actualizar fechas que hayan cambiado (Moodle).
+ * - `onEntregadas` recibe [{ titulo, curso, enlace }] de lo ya entregado (Classroom) y devuelve cuántas pasó a Hecho.
  */
-export function useIntegracion(clave, importar, activo, onFechas) {
+export function useIntegracion(clave, importar, activo, onFechas, onEntregadas) {
   const info = INTEGRACIONES[clave] ?? HERRAMIENTAS[clave]
   const [conectado, setConectado] = useState(null) // null = comprobando
   const [estado, setEstado] = useState({ cargando: false, error: '', ultima: ultimaSincronizacion(clave) })
   const [aviso, setAviso] = useState(null)
-  const callbacks = useRef({ importar, onFechas })
+  const callbacks = useRef({ importar, onFechas, onEntregadas })
   useEffect(() => {
-    callbacks.current = { importar, onFechas }
+    callbacks.current = { importar, onFechas, onEntregadas }
   })
 
   useEffect(() => {
@@ -48,9 +49,12 @@ export function useIntegracion(clave, importar, activo, onFechas) {
         if (!resultado) return // ya había una sincronización en marcha
         await callbacks.current.importar(resultado.nuevas)
         if (resultado.fechas.length) callbacks.current.onFechas?.(clave, resultado.fechas)
+        const hechas = resultado.entregadas.length ? (callbacks.current.onEntregadas?.(clave, resultado.entregadas) ?? 0) : 0
         setEstado({ cargando: false, error: '', ultima: Date.now() })
         const n = resultado.nuevas.length
-        if (n) setAviso(`${n} ${n === 1 ? 'tarea nueva' : 'tareas nuevas'} de ${info.corto}`)
+        const avisoHechas = hechas ? `${hechas} ${hechas === 1 ? 'tarea entregada pasa' : 'tareas entregadas pasan'} a Hecho` : ''
+        if (n) setAviso([`${n} ${n === 1 ? 'tarea nueva' : 'tareas nuevas'} de ${info.corto}`, avisoHechas].filter(Boolean).join(' · '))
+        else if (hechas) setAviso(avisoHechas)
         else if (!silencioso) setAviso(`No hay tareas nuevas en ${info.corto}`)
       } catch (err) {
         setEstado((e) => ({ ...e, cargando: false, error: err.message }))

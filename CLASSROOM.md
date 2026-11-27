@@ -62,6 +62,24 @@ Para activarlo hace falta:
 3. Pegar la versión nueva de `Classroom.gs` (conservando tu `TOKEN`), ejecutar **probarDocumento** para aceptar
    los permisos de Docs y Drive, y publicar una versión nueva (ver abajo).
 
+## Tareas entregadas → Hecho
+
+En cada sincronización el script también mira en Classroom qué tareas has **entregado** (o te ha devuelto el
+profesor). Si alguna está en Sarflow sin terminar, pasa sola a **Hecho**. Se reconocen por el enlace de la tarea
+y, si no, por el título y el curso. Solo afecta a las tareas de tu tablero personal.
+
+Para activarlo:
+
+1. En el editor de Apps Script, en el menú de la izquierda, **Servicios → + → Google Classroom API → Añadir**.
+2. Pega la versión nueva de `Classroom.gs` (conservando tu `TOKEN`). En **Configuración del proyecto** marca
+   «Mostrar el archivo de manifiesto appsscript.json» y pega el contenido de `google-apps-script/appsscript.json`:
+   fija el permiso de Classroom de **alumno** (si no, Google puede dar el de profesor y fallar con
+   «The caller does not have permission»).
+3. Ejecuta **probarEntregadas** y acepta el permiso de Classroom. En el registro verás tus tareas entregadas.
+4. Publica una versión nueva (ver abajo).
+
+Si el servicio de Classroom no está activado, el script sigue funcionando igual, solo que no detecta las entregas.
+
 ## Si cambias el script
 
 Después de editar `Classroom.gs` hay que publicar otra vez: **Implementar → Gestionar implementaciones → editar (lápiz) →

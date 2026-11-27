@@ -161,9 +161,9 @@ export async function sincronizar(clave) {
   if (ocupado[clave]) return null // evita dos sincronizaciones a la vez (y duplicados)
   ocupado[clave] = true
   try {
-    const { total, nuevas, fechas } = await llamar(clave, { accion: 'sincronizar' })
+    const { total, nuevas, fechas, entregadas } = await llamar(clave, { accion: 'sincronizar' })
     localStorage.setItem(`${clave}_ultima`, String(Date.now()))
-    return { total, nuevas: nuevas.map(INTEGRACIONES[clave].aProyecto), fechas: fechas ?? [] }
+    return { total, nuevas: nuevas.map(INTEGRACIONES[clave].aProyecto), fechas: fechas ?? [], entregadas: entregadas ?? [] }
   } finally {
     ocupado[clave] = false
   }

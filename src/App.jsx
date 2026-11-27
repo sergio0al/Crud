@@ -68,6 +68,7 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
     guardar,
     importar,
     actualizarFechas,
+    marcarEntregadas,
     editar,
     moverA,
     borrar,
@@ -100,7 +101,7 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
   const [aBorrar, setABorrar] = useState(null)
   // Integraciones: crean proyectos solos a partir de Classroom y Moodle
   const listo = !cargando && proyectosLocales === 0
-  const classroom = useIntegracion('classroom', importar, listo, actualizarFechas)
+  const classroom = useIntegracion('classroom', importar, listo, actualizarFechas, marcarEntregadas)
   const moodle = useIntegracion('moodle', importar, listo, actualizarFechas)
   const github = useIntegracion('github', importar, listo, actualizarFechas) // solo para crear repositorios
   const integraciones = [classroom, moodle, github]
