@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { COLORES, TEMA_INICIAL, cargarTema, esHex, guardarTema } from '../tema'
 import { actualizarPerfil } from '../auth'
+import { PREFERENCIAS_INICIALES, TIPOS_NOTIFICACION } from '../notificaciones'
 import { IconoCheck, IconoPrioridad } from './Iconos'
 
 const MODOS = [
@@ -27,6 +28,10 @@ export default function Configuracion({ usuario, onActualizarUsuario, integracio
     onActualizarUsuario({ tema: nuevo })
     actualizarPerfil(usuario.id, { tema: nuevo }).catch(() => {})
   }
+
+  // Preferencias de notificaciones (van dentro del tema para que se guarden en el perfil)
+  const avisos = { ...PREFERENCIAS_INICIALES, ...(tema.notificaciones ?? {}) }
+  const cambiarAviso = (clave, valor) => cambiar({ notificaciones: { ...avisos, [clave]: valor } })
 
   const elegirColor = (color) => {
     setHex(color ?? '')
@@ -137,6 +142,22 @@ export default function Configuracion({ usuario, onActualizarUsuario, integracio
       </Tarjeta>
 
       <div className="pt-4">
+        <h2 className="text-base font-semibold">Notificaciones</h2>
+        <p className="text-sm text-base-content/60">Elige qué avisos aparecen en el recuadro de Notificaciones del resumen.</p>
+      </div>
+
+      <Tarjeta titulo="Qué quieres ver" descripcion="Desactiva lo que no te interese. Se guarda en tu cuenta.">
+        <ul className="divide-y divide-base-300 -my-2">
+          {TIPOS_NOTIFICACION.map((t) => (
+            <Interruptor key={t.clave} titulo={t.titulo} texto={t.texto} activo={avisos[t.clave]}
+              onCambiar={(v) => cambiarAviso(t.clave, v)} />
+          ))}
+          <Interruptor titulo="También lo que hago yo" texto="Mostrar mis propias acciones, como mover mis tareas o crear tareas en tablas."
+            activo={avisos.propias} onCambiar={(v) => cambiarAviso('propias', v)} />
+        </ul>
+      </Tarjeta>
+
+      <div className="pt-4">
         <h2 className="text-base font-semibold">Integraciones</h2>
         <p className="text-sm text-base-content/60">Conecta servicios externos para crear proyectos automáticamente.</p>
       </div>
@@ -170,6 +191,20 @@ export default function Configuracion({ usuario, onActualizarUsuario, integracio
         </button>
       </div>
     </div>
+  )
+}
+
+function Interruptor({ titulo, texto, activo, onCambiar }) {
+  return (
+    <li>
+      <label className="flex items-center gap-4 py-2.5 cursor-pointer">
+        <span className="flex-1 min-w-0">
+          <span className="block text-sm font-medium">{titulo}</span>
+          <span className="block text-xs text-base-content/60">{texto}</span>
+        </span>
+        <input type="checkbox" className="toggle toggle-sm toggle-primary" checked={activo} onChange={(e) => onCambiar(e.target.checked)} />
+      </label>
+    </li>
   )
 }
 

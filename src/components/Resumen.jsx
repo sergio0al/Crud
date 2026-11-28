@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { ESTADOS, findOption } from '../constants'
 import { clave } from '../hooks/useProyectos'
 import { integracionDe } from '../integraciones'
+import { PREFERENCIAS_INICIALES } from '../notificaciones'
 import {
+  IconoAjustes,
   IconoCarpeta,
   IconoCheck,
   IconoComentario,
@@ -39,7 +41,7 @@ const diasHasta = (iso, hoy) => Math.round((new Date(iso + 'T00:00:00') - new Da
 const fechaCorta = (iso) =>
   new Date(iso + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }).replace('.', '')
 
-export default function Resumen({ proyectos, todos = proyectos, cambios = [], tableros = [], usuarioId, onAbrir, onIrTablero }) {
+export default function Resumen({ proyectos, todos = proyectos, cambios = [], tableros = [], usuarioId, preferencias = PREFERENCIAS_INICIALES, onAbrir, onIrTablero, onConfigurar }) {
   const total = proyectos.length
   const hechos = proyectos.filter((p) => p.estado === 'hecho')
   const activos = proyectos.filter((p) => p.estado !== 'hecho')
@@ -104,7 +106,7 @@ export default function Resumen({ proyectos, todos = proyectos, cambios = [], ta
         </Tarjeta>
 
         {/* Notificaciones */}
-        <Notificaciones todos={todos} cambios={cambios} tableros={tableros} usuarioId={usuarioId} hoy={hoy} onAbrir={onAbrir} />
+        <Notificaciones todos={todos} cambios={cambios} preferencias={preferencias} onConfigurar={onConfigurar} tableros={tableros} usuarioId={usuarioId} hoy={hoy} onAbrir={onAbrir} />
       </div>
 
       {/* Recientes */}
@@ -238,7 +240,7 @@ function crearNotificaciones(todos, cambios, tableros, usuarioId, hoy) {
     const a = findOption(ESTADOS, c.a).label
     const quien = c.autorId === usuarioId ? 'Moviste' : c.autorNombre ? `${c.autorNombre} movió` : 'Se movió sola'
     lista.push({
-      id: `e${c.id}`, p, fecha: c.fecha, mia: c.autorId === usuarioId,
+      id: `e${c.id}`, tipo: 'estados', p, fecha: c.fecha, mia: c.autorId === usuarioId,
       Icono: c.a === 'hecho' ? IconoCheck : IconoFlecha,
       color: COLOR_AVISO[c.a] ?? COLOR_AVISO.por_hacer,
       texto: `${quien} a ${a}${enTabla(p)}`,
@@ -249,32 +251,35 @@ function crearNotificaciones(todos, cambios, tableros, usuarioId, hoy) {
     // Tareas que me han asignado
     if (p.asignado === usuarioId && p.asignadoEn >= desde) {
       const mia = p.asignadoPor === usuarioId
-      lista.push({ id: `a${p.id}${p.asignadoEn}`, p, fecha: p.asignadoEn, mia, Icono: IconoUsuarios, color: 'bg-primary/10 text-primary', texto: `${mia ? 'Te la asignaste' : `${p.asignadoPorNombre ?? 'Alguien'} te asignó esta tarea`}${enTabla(p)}` })
+      lista.push({ id: `a${p.id}${p.asignadoEn}`, tipo: 'asignaciones', p, fecha: p.asignadoEn, mia, Icono: IconoUsuarios, color: 'bg-primary/10 text-primary', texto: `${mia ? 'Te la asignaste' : `${p.asignadoPorNombre ?? 'Alguien'} te asignó esta tarea`}${enTabla(p)}` })
     }
     // Tareas nuevas: de Classroom/Moodle o de las tablas compartidas (grupos)
     if (p.creado >= desde) {
       const origen = integracionDe(p)
       const mia = p.user_id === usuarioId
       if (p.tablero_id !== null)
-        lista.push({ id: `n${p.id}`, p, fecha: p.creado, mia, Icono: IconoMas, color: 'bg-info/10 text-info', texto: `${mia ? 'Creaste' : `${p.autorNombre} creó`} una tarea${enTabla(p)}` })
-      else if (origen) lista.push({ id: `n${p.id}`, p, fecha: p.creado, Icono: origen.Icono, color: origen.color, texto: `Nueva tarea de ${origen.corto}` })
+        lista.push({ id: `n${p.id}`, tipo: 'tablas', p, fecha: p.creado, mia, Icono: IconoMas, color: 'bg-info/10 text-info', texto: `${mia ? 'Creaste' : `${p.autorNombre} creó`} una tarea${enTabla(p)}` })
+      else if (origen) lista.push({ id: `n${p.id}`, tipo: origen.clave, p, fecha: p.creado, Icono: origen.Icono, color: origen.color, texto: `Nueva tarea de ${origen.corto}` })
     }
     // Comentarios de otras personas
     for (const c of p.comentarios ?? [])
       if (c.fecha >= desde && c.autorId !== usuarioId)
-        lista.push({ id: `c${c.id}`, p, fecha: c.fecha, Icono: IconoComentario, color: 'bg-secondary/10 text-secondary', texto: `${c.autorNombre} comentó`, cita: c.texto })
+        lista.push({ id: `c${c.id}`, tipo: 'comentarios', p, fecha: c.fecha, Icono: IconoComentario, color: 'bg-secondary/10 text-secondary', texto: `${c.autorNombre} comentó`, cita: c.texto })
     // Entregas para hoy o mañana
     const dias = diasHasta(p.fecha, hoy)
     if (p.estado !== 'hecho' && (dias === 0 || dias === 1))
-      lista.push({ id: `v${p.id}`, p, fecha: inicioHoy, Icono: IconoReloj, color: 'bg-warning/10 text-warning', texto: dias === 0 ? 'Se entrega hoy' : 'Se entrega mañana' })
+      lista.push({ id: `v${p.id}`, tipo: 'entregas', p, fecha: inicioHoy, Icono: IconoReloj, color: 'bg-warning/10 text-warning', texto: dias === 0 ? 'Se entrega hoy' : 'Se entrega mañana' })
   }
-  return lista.sort((a, b) => b.fecha - a.fecha).slice(0, 30)
+  return lista.sort((a, b) => b.fecha - a.fecha)
 }
 
-function Notificaciones({ todos, cambios, tableros, usuarioId, hoy, onAbrir }) {
+function Notificaciones({ todos, cambios, tableros, usuarioId, preferencias, hoy, onAbrir, onConfigurar }) {
   const claveVistas = `notificaciones_vistas_${usuarioId}`
   const [vistas, setVistas] = useState(() => Number(localStorage.getItem(claveVistas)) || 0)
+  // Solo los tipos que el usuario quiere recibir (Configuración → Notificaciones)
   const lista = crearNotificaciones(todos, cambios, tableros, usuarioId, hoy)
+    .filter((n) => preferencias[n.tipo] !== false && (preferencias.propias || !n.mia))
+    .slice(0, 30)
   const esNueva = (n) => !n.mia && n.fecha > vistas
   const nuevas = lista.filter(esNueva).length
 
@@ -294,11 +299,18 @@ function Notificaciones({ todos, cambios, tableros, usuarioId, hoy, onAbrir }) {
       }
       subtitulo="Lo nuevo de los últimos 14 días"
       enlace={
-        nuevas > 0 && (
-          <button className="text-sm hover:underline shrink-0" onClick={marcarLeidas}>
-            Marcar leídas
-          </button>
-        )
+        <span className="flex items-center gap-3 shrink-0">
+          {nuevas > 0 && (
+            <button className="text-sm hover:underline" onClick={marcarLeidas}>
+              Marcar leídas
+            </button>
+          )}
+          {onConfigurar && (
+            <button className="text-base-content/50 hover:text-base-content" title="Elegir qué notificaciones ver" onClick={onConfigurar}>
+              <IconoAjustes className="size-4" />
+            </button>
+          )}
+        </span>
       }
     >
       {lista.length === 0 ? (

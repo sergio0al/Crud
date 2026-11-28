@@ -4,6 +4,14 @@
 
 export const NOVEDADES = [
   {
+    id: 23,
+    fecha: '2026-11-28',
+    tipo: 'mejora',
+    titulo: 'Elige qué notificaciones ver',
+    texto:
+      'En Configuración → Notificaciones puedes activar o desactivar cada tipo de aviso (Classroom, Moodle, tablas compartidas, asignaciones, cambios de estado, comentarios y entregas) y decidir si ver también lo que haces tú.',
+  },
+  {
     id: 22,
     fecha: '2026-11-28',
     tipo: 'nuevo',

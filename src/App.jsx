@@ -6,6 +6,7 @@ import Sidebar from './components/Sidebar'
 import BarraMovil from './components/BarraMovil'
 import Resumen from './components/Resumen'
 import Novedades from './components/Novedades'
+import { preferenciasDe } from './notificaciones'
 import { ULTIMA_NOVEDAD, leerNovedadVista, marcarNovedadesVistas } from './novedades'
 import Tablero from './components/Tablero'
 import Configuracion from './components/Configuracion'
@@ -222,7 +223,7 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
           ) : vista === 'configuracion' ? (
             <Configuracion usuario={usuario} onActualizarUsuario={onActualizarUsuario} integraciones={integraciones} onIntegracion={setConfigIntegracion} />
           ) : vista === 'resumen' ? (
-            <Resumen proyectos={personales} todos={proyectos} cambios={cambios} tableros={tablas.tableros} usuarioId={usuario.id} onAbrir={(id) => setPanel({ id })} onIrTablero={() => setVista('tablero')} />
+            <Resumen proyectos={personales} todos={proyectos} cambios={cambios} tableros={tablas.tableros} usuarioId={usuario.id} preferencias={preferenciasDe(usuario)} onAbrir={(id) => setPanel({ id })} onIrTablero={() => setVista('tablero')} onConfigurar={() => setVista('configuracion')} />
           ) : (
             <>
               {tableroActual && (
