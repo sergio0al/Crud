@@ -61,6 +61,11 @@ export const IconoComentario = (p) => (
   <svg viewBox="0 0 24 24" {...base} {...p}><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.4A8 8 0 1 1 21 12Z" /></svg>
 )
 
+// Destellos: novedades de la app
+export const IconoNovedades = (p) => (
+  <svg viewBox="0 0 24 24" {...base} strokeWidth={1.7} {...p}><path d="M10 3.5 11.6 8.4 16.5 10 11.6 11.6 10 16.5 8.4 11.6 3.5 10 8.4 8.4Z" /><path d="M18 14v6M15 17h6" /></svg>
+)
+
 export const IconoCasa = (p) => (
   <svg viewBox="0 0 24 24" {...base} strokeWidth={1.7} {...p}><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-9.5Z" /></svg>
 )

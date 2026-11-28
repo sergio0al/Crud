@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { iniciales } from '../auth'
-import { IconoAjustes, IconoBuscar, IconoCasa, IconoMas, IconoSalir, IconoTablero, IconoUsuarios } from './Iconos'
+import { IconoAjustes, IconoBuscar, IconoCasa, IconoMas, IconoNovedades, IconoSalir, IconoTablero, IconoUsuarios } from './Iconos'
 import { IconoTabla } from './TablasCompartidas'
 
 // Barra de navegación inferior, solo visible en móvil.
@@ -55,6 +55,7 @@ export default function BarraMovil({ vista, onVista, onNuevo, onBuscar, usuario,
                 <PuntoEstado estado={estadoTexto} />
               </Opcion>
             ))}
+            <Opcion Icono={IconoNovedades} texto="Novedades" onClick={cerrarY(() => onVista('novedades'))} />
             {owner && <Opcion Icono={IconoUsuarios} texto="Usuarios" onClick={cerrarY(() => onVista('usuarios'))} />}
             <Opcion Icono={IconoAjustes} texto="Configuración" onClick={cerrarY(() => onVista('configuracion'))} />
             <Opcion Icono={IconoSalir} texto="Cerrar sesión" onClick={cerrarY(onSalir)} peligro />
@@ -71,10 +72,10 @@ export default function BarraMovil({ vista, onVista, onNuevo, onBuscar, usuario,
           onClick={() => setCuentaAbierta(!cuentaAbierta)}
           aria-expanded={cuentaAbierta}
           className={`relative flex flex-col items-center justify-center gap-1 text-xs transition ${
-            cuentaAbierta || enTabla || vista === 'configuracion' || vista === 'usuarios' ? 'font-semibold text-base-content' : 'text-base-content/70'
+            cuentaAbierta || enTabla || vista === 'configuracion' || vista === 'usuarios' || vista === 'novedades' ? 'font-semibold text-base-content' : 'text-base-content/70'
           }`}
         >
-          {(cuentaAbierta || enTabla || vista === 'configuracion' || vista === 'usuarios') && <span className="absolute top-0 inset-x-0 h-0.5 bg-base-content" />}
+          {(cuentaAbierta || enTabla || vista === 'configuracion' || vista === 'usuarios' || vista === 'novedades') && <span className="absolute top-0 inset-x-0 h-0.5 bg-base-content" />}
           <span className="relative grid place-items-center size-5 rounded-full bg-base-200 text-[9px] font-semibold">
             {iniciales(usuario.nombre)}
             {integraciones.some((i) => i.estadoTexto === 'error') && <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-error" />}

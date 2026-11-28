@@ -5,6 +5,8 @@ import Login from './components/Login'
 import Sidebar from './components/Sidebar'
 import BarraMovil from './components/BarraMovil'
 import Resumen from './components/Resumen'
+import Novedades from './components/Novedades'
+import { ULTIMA_NOVEDAD, leerNovedadVista, marcarNovedadesVistas } from './novedades'
 import Tablero from './components/Tablero'
 import Configuracion from './components/Configuracion'
 import Usuarios from './components/Usuarios'
@@ -80,7 +82,18 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
     descartarLocales,
   } = useProyectos(usuario)
   const [migrando, setMigrando] = useState(false)
-  const [vistaElegida, setVista] = useState('resumen')
+  const [vistaElegida, setVistaElegida] = useState('resumen')
+  // Novedades: la última que ha visto el usuario (para el punto del menú y marcar las que no había visto)
+  const [novedadVista, setNovedadVista] = useState(() => leerNovedadVista(usuario.id))
+  const [vistaAntes, setVistaAntes] = useState(novedadVista)
+  const setVista = (v) => {
+    if (v === 'novedades') {
+      setVistaAntes(novedadVista)
+      marcarNovedadesVistas(usuario.id)
+      setNovedadVista(ULTIMA_NOVEDAD)
+    }
+    setVistaElegida(v)
+  }
   const owner = esOwner(usuario)
   // Tablas compartidas: la vista 't:<id>' muestra el tablero de esa tabla
   const tablas = useTableros(usuario.id)
@@ -131,6 +144,7 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
   return (
     <div className="flex h-screen bg-base-200 text-base-content">
       <Sidebar vista={vista} onVista={setVista} usuario={usuario} onSalir={onSalir} totalProyectos={personales.length}
+        novedades={novedadVista < ULTIMA_NOVEDAD}
         integraciones={integraciones}
         onIntegracion={setConfigIntegracion}
         owner={owner}
@@ -142,7 +156,7 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="flex items-center gap-3 h-16 px-4 md:px-6 border-b border-base-300 bg-base-100 shrink-0">
           <h1 className="text-lg font-semibold flex-1 truncate">
-            {vista === 'resumen' ? `Hola, ${nombreCorto}` : vista === 'configuracion' ? 'Configuración' : vista === 'usuarios' ? 'Usuarios' : tableroActual ? tableroActual.nombre : 'Tablero de proyectos'}
+            {vista === 'resumen' ? `Hola, ${nombreCorto}` : vista === 'configuracion' ? 'Configuración' : vista === 'novedades' ? 'Novedades' : vista === 'usuarios' ? 'Usuarios' : tableroActual ? tableroActual.nombre : 'Tablero de proyectos'}
           </h1>
           <button className="btn btn-primary hidden md:inline-flex h-10" onClick={() => nuevo()}>
             <IconoMas className="size-4" />
@@ -203,6 +217,8 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
             </div>
           ) : vista === 'usuarios' ? (
             <Usuarios usuario={usuario} />
+          ) : vista === 'novedades' ? (
+            <Novedades vistaAntes={vistaAntes} />
           ) : vista === 'configuracion' ? (
             <Configuracion usuario={usuario} onActualizarUsuario={onActualizarUsuario} integraciones={integraciones} onIntegracion={setConfigIntegracion} />
           ) : vista === 'resumen' ? (

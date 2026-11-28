@@ -1,13 +1,19 @@
 import { iniciales } from '../auth'
-import { IconoAjustes, IconoCasa, IconoLogo, IconoMas, IconoSalir, IconoTablero, IconoUsuarios } from './Iconos'
+import { IconoAjustes, IconoCasa, IconoLogo, IconoMas, IconoNovedades, IconoSalir, IconoTablero, IconoUsuarios } from './Iconos'
 import { IconoTabla } from './TablasCompartidas'
 
 const SECCIONES = [
-  { titulo: 'General', items: [{ id: 'resumen', label: 'Resumen', Icono: IconoCasa }] },
+  {
+    titulo: 'General',
+    items: [
+      { id: 'resumen', label: 'Resumen', Icono: IconoCasa },
+      { id: 'novedades', label: 'Novedades', Icono: IconoNovedades },
+    ],
+  },
   { titulo: 'Proyectos', items: [{ id: 'tablero', label: 'Tablero', Icono: IconoTablero }] },
 ]
 
-export default function Sidebar({ vista, onVista, usuario, onSalir, totalProyectos, integraciones, onIntegracion, owner, tablas, conteos, onNuevaTabla }) {
+export default function Sidebar({ vista, onVista, usuario, onSalir, totalProyectos, novedades, integraciones, onIntegracion, owner, tablas, conteos, onNuevaTabla }) {
   return (
     <aside className="hidden md:flex flex-col w-60 shrink-0 border-r border-base-300 bg-base-100">
       <div className="flex items-center gap-3 h-16 px-5">
@@ -39,6 +45,7 @@ export default function Sidebar({ vista, onVista, usuario, onSalir, totalProyect
                       {id === 'tablero' && (
                         <span className="hidden md:inline text-xs text-base-content/50">{totalProyectos}</span>
                       )}
+                      {id === 'novedades' && novedades && <span className="size-2 rounded-full bg-info" title="Hay novedades" />}
                     </button>
                   </li>
                 )
