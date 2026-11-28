@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ESTADOS, PRIORIDADES, findOption } from '../constants'
+import { ESTADOS, PRIORIDADES, findOption, migrarEstado } from '../constants'
 import { iniciales } from '../auth'
 import Markdown from './Markdown'
 import { IconoCerrar, IconoGithub, IconoMas, IconoPrioridad, IconoPuntos, IconoTarea } from './Iconos'
@@ -56,6 +56,9 @@ export default function ProyectoPanel({
   const [detallesAbiertos, setDetallesAbiertos] = useState(true)
   const datos = creando ? borrador : proyecto
   const origen = integracionDe(datos) // Classroom, Moodle o nada (creado a mano)
+
+  // Al crear el documento o el repositorio de una tarea que está "Por hacer", pasa a "En curso"
+  const empezar = !creando && migrarEstado(proyecto.estado) === 'por_hacer' ? { estado: 'en_curso' } : {}
 
   const cambiar = (campos) => (creando ? setBorrador((b) => ({ ...b, ...campos })) : onActualizar(campos))
 
@@ -205,12 +208,12 @@ export default function ProyectoPanel({
           {!creando && (
             <div className="space-y-2">
               <h3 className="px-1 text-xs font-semibold uppercase tracking-wide text-base-content/50">Enlaces</h3>
-              <TarjetaDocumento proyecto={proyecto} disponible={classroomConectado} onGuardar={(documento) => onActualizar({ documento })} />
+              <TarjetaDocumento proyecto={proyecto} disponible={classroomConectado} onGuardar={(documento) => onActualizar({ documento, ...empezar })} />
               <TarjetaRepositorio
                 proyecto={proyecto}
                 disponible={githubConectado}
                 onConectar={onConectarGithub}
-                onGuardar={(repositorio) => onActualizar({ repositorio })}
+                onGuardar={(repositorio) => onActualizar({ repositorio, ...empezar })}
               />
               {origen && datos.origen.enlace && (
                 <TarjetaEnlace
