@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { ESTADOS, PRIORIDADES, findOption, migrarEstado } from '../constants'
 import { iniciales } from '../auth'
 import Markdown from './Markdown'
-import { IconoCerrar, IconoGithub, IconoMas, IconoPrioridad, IconoPuntos, IconoTarea } from './Iconos'
+import Desarrollo from './Desarrollo'
+import { IconoCerrar, IconoEnlace, IconoGithub, IconoMas, IconoPrioridad, IconoPuntos, IconoTarea } from './Iconos'
 import { crearDocumento, crearRepositorio, integracionDe } from '../integraciones'
 import { asignaturaDe, colorAsignatura } from '../asignaturas'
 
@@ -251,6 +252,10 @@ export default function ProyectoPanel({
                 />
               )}
             </div>
+          )}
+
+          {!creando && proyecto.repositorio && (
+            <Desarrollo proyecto={proyecto} clave={clave} disponible={githubConectado} onConectar={onConectarGithub} />
           )}
 
           {!creando && (
@@ -524,6 +529,11 @@ function TarjetaDocumento({ proyecto, disponible, onGuardar }) {
 function TarjetaRepositorio({ proyecto, disponible, onConectar, onGuardar }) {
   const [creando, setCreando] = useState(false)
   const [error, setError] = useState('')
+  // Vincular uno que ya existe pegando su enlace
+  const [vinculando, setVinculando] = useState(false)
+  const [url, setUrl] = useState('')
+  const limpio = url.trim().replace(/\.git$/, '').replace(/\/+$/, '')
+  const valido = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+$/.test(limpio)
 
   if (proyecto.repositorio)
     return (
@@ -542,14 +552,14 @@ function TarjetaRepositorio({ proyecto, disponible, onConectar, onGuardar }) {
     setCreando(true)
     const ventana = window.open('', '_blank') // se abre ya para que el navegador no la bloquee
     try {
-      const url = await crearRepositorio({
+      const nuevo = await crearRepositorio({
         titulo: proyecto.titulo,
         asignatura: asignaturaDe(proyecto),
         fecha: proyecto.fecha,
         descripcion: proyecto.descripcion,
       })
-      onGuardar(url)
-      if (ventana) ventana.location.href = url
+      onGuardar(nuevo)
+      if (ventana) ventana.location.href = nuevo
     } catch (err) {
       ventana?.close()
       setError(err.message)
@@ -560,25 +570,71 @@ function TarjetaRepositorio({ proyecto, disponible, onConectar, onGuardar }) {
 
   return (
     <div>
-      <button
-        className={`${CLASE_TARJETA} border-dashed`}
-        disabled={creando}
-        title={disponible ? 'Crea un repositorio privado en tu GitHub para esta entrega' : 'Conecta GitHub para crear repositorios'}
-        onClick={crear}
-      >
-        <span className="grid place-items-center size-10 shrink-0 rounded-lg bg-base-content/10">
-          {creando ? <span className="loading loading-spinner loading-sm" /> : <IconoGithub className="size-6" />}
-        </span>
-        <span className="flex-1 min-w-0">
-          <span className="block text-sm font-medium">{creando ? 'Creando repositorio…' : 'Crear repositorio'}</span>
-          <span className="block truncate text-xs text-base-content/60">
-            {disponible ? 'Privado, en tu cuenta de GitHub' : 'Conecta GitHub para usarlo'}
+      <div className={`${CLASE_TARJETA} border-dashed flex-col items-stretch gap-2 hover:shadow-none`}>
+        <div className="flex items-center gap-3">
+          <span className="grid place-items-center size-10 shrink-0 rounded-lg bg-base-content/10">
+            {creando ? <span className="loading loading-spinner loading-sm" /> : <IconoGithub className="size-6" />}
           </span>
-        </span>
-        {!creando && <IconoMas className="size-4 shrink-0 text-base-content/30 group-hover:text-base-content/70 transition" />}
-      </button>
+          <span className="flex-1 min-w-0">
+            <span className="block text-sm font-medium">{creando ? 'Creando repositorio…' : 'Repositorio de GitHub'}</span>
+            <span className="block truncate text-xs text-base-content/60">
+              {disponible ? 'Crea uno privado o vincula uno que ya tengas' : 'Conecta GitHub para usarlo'}
+            </span>
+          </span>
+        </div>
+
+        {vinculando ? (
+          <form
+            className="flex gap-1.5"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (valido) onGuardar(limpio)
+            }}
+          >
+            <input
+              autoFocus
+              className="input input-sm flex-1 min-w-0 text-xs"
+              placeholder="https://github.com/usuario/repositorio"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  e.stopPropagation()
+                  setVinculando(false)
+                }
+              }}
+            />
+            <button className="btn btn-sm btn-primary" disabled={!valido}>Vincular</button>
+            <button type="button" className="btn btn-sm btn-ghost btn-square" title="Cancelar" onClick={() => setVinculando(false)}>
+              <IconoCerrar className="size-4" />
+            </button>
+          </form>
+        ) : (
+          <div className="grid grid-cols-2 gap-1.5">
+            <BotonOpcion disabled={creando} onClick={crear}
+              title={disponible ? 'Crea un repositorio privado en tu GitHub para esta entrega' : 'Conecta GitHub para crear repositorios'}>
+              <IconoMas className="size-4" /> Crear nuevo
+            </BotonOpcion>
+            <BotonOpcion disabled={creando} onClick={() => setVinculando(true)} title="Pega el enlace de un repositorio que ya existe">
+              <IconoEnlace className="size-4" /> Vincular existente
+            </BotonOpcion>
+          </div>
+        )}
+      </div>
       {error && <p className="mt-1 px-1 text-xs text-error">{error}</p>}
     </div>
+  )
+}
+
+function BotonOpcion({ children, ...props }) {
+  return (
+    <button
+      type="button"
+      {...props}
+      className="flex items-center justify-center gap-1.5 rounded-md border border-base-300 px-2 py-2 text-xs font-medium transition hover:border-base-content/30 hover:bg-base-200/60 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      {children}
+    </button>
   )
 }
 

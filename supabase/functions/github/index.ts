@@ -32,12 +32,22 @@ function nombreRepo(titulo: string, asignatura: string) {
   const limpiar = (s: string) =>
     s
       .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
+      .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')
   const codigo = (asignatura.trim().split(/\s+/)[0] ?? '').match(/^[A-Za-z]*\d[\w.-]*$/) ? asignatura.trim().split(/\s+/)[0] : ''
   return limpiar(`${codigo} ${titulo}`).slice(0, 80).replace(/-+$/, '') || 'entrega'
+}
+
+// "https://github.com/ana/mi-repo" o "ana/mi-repo" → "ana/mi-repo" (null si no es válido)
+function repoDe(valor: unknown) {
+  const r = String(valor ?? '')
+    .trim()
+    .replace(/^https:\/\/github\.com\//i, '')
+    .replace(/\.git$/i, '')
+    .replace(/\/+$/, '')
+  return /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(r) ? r : null
 }
 
 const base64 = (texto: string) => {
@@ -146,6 +156,73 @@ Deno.serve(async (req) => {
       })
 
       return responder({ url: repo.html_url, nombre: repo.full_name })
+    }
+
+    // Panel "Desarrollo" de una tarea: ramas, últimos commits y pull requests de su repositorio
+    case 'desarrollo': {
+      const fila = await leer()
+      if (!fila) return responder({ error: 'Conecta GitHub para ver el desarrollo' }, 400)
+      const repo = repoDe(cuerpo.repo)
+      if (!repo) return responder({ error: 'El enlace del repositorio no es válido' }, 400)
+
+      const [info, ramas, commits, pulls] = await Promise.all([
+        github(fila.token, `/repos/${repo}`),
+        github(fila.token, `/repos/${repo}/branches?per_page=50`),
+        github(fila.token, `/repos/${repo}/commits?per_page=8`),
+        github(fila.token, `/repos/${repo}/pulls?state=all&per_page=15&sort=updated&direction=desc`),
+      ])
+      if (info.res.status === 401) return responder({ error: 'GitHub ya no acepta tu token. Vuelve a conectarlo.' }, 400)
+      if (info.res.status === 404)
+        return responder({ error: 'No encuentro el repositorio, o tu cuenta de GitHub no tiene acceso a él.' }, 400)
+      if (!info.res.ok) return responder({ error: info.datos.message ?? `GitHub respondió ${info.res.status}` }, 400)
+
+      const lista = (r: { res: Response; datos: any }) => (r.res.ok && Array.isArray(r.datos) ? r.datos : [])
+      return responder({
+        repo: { nombre: info.datos.full_name, url: info.datos.html_url, principal: info.datos.default_branch },
+        ramas: lista(ramas).map((b: any) => ({ nombre: b.name })),
+        commits: lista(commits).map((c: any) => ({
+          sha: c.sha,
+          mensaje: String(c.commit?.message ?? '').split('\n')[0],
+          autor: c.author?.login ?? c.commit?.author?.name ?? '',
+          fecha: c.commit?.author?.date ?? null,
+          url: c.html_url,
+        })),
+        pulls: lista(pulls).map((p: any) => ({
+          numero: p.number,
+          titulo: p.title,
+          estado: p.merged_at ? 'merged' : p.draft && p.state === 'open' ? 'draft' : p.state, // open | closed | merged | draft
+          rama: p.head?.ref ?? '',
+          autor: p.user?.login ?? '',
+          fecha: p.updated_at,
+          url: p.html_url,
+        })),
+      })
+    }
+
+    // Crea una rama desde la rama principal del repositorio
+    case 'crearRama': {
+      const fila = await leer()
+      if (!fila) return responder({ error: 'Conecta GitHub para crear ramas' }, 400)
+      const repo = repoDe(cuerpo.repo)
+      if (!repo) return responder({ error: 'El enlace del repositorio no es válido' }, 400)
+      const nombre = String(cuerpo.nombre ?? '').trim()
+      if (!/^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$/.test(nombre) || nombre.includes('..') || nombre.endsWith('/') || nombre.endsWith('.lock'))
+        return responder({ error: 'Nombre de rama no válido: usa letras, números, guiones y barras.' }, 400)
+
+      const info = await github(fila.token, `/repos/${repo}`)
+      if (!info.res.ok) return responder({ error: 'No encuentro el repositorio, o tu cuenta de GitHub no tiene acceso a él.' }, 400)
+      const principal = info.datos.default_branch
+      const ref = await github(fila.token, `/repos/${repo}/git/ref/heads/${encodeURIComponent(principal)}`)
+      if (!ref.res.ok) return responder({ error: 'El repositorio está vacío: haz el primer commit antes de crear ramas.' }, 400)
+
+      const { res, datos } = await github(fila.token, `/repos/${repo}/git/refs`, {
+        method: 'POST',
+        body: JSON.stringify({ ref: `refs/heads/${nombre}`, sha: ref.datos.object.sha }),
+      })
+      if (res.status === 422) return responder({ error: 'Ya existe una rama con ese nombre.' }, 400)
+      if (res.status === 403 || res.status === 404) return responder({ error: 'Tu token no tiene permiso para crear ramas en este repositorio.' }, 400)
+      if (!res.ok) return responder({ error: datos.message ?? `GitHub respondió ${res.status}` }, 400)
+      return responder({ nombre, url: `${info.datos.html_url}/tree/${nombre}` })
     }
 
     default:

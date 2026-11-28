@@ -154,6 +154,12 @@ export const crearDocumento = async ({ titulo, asignatura, fecha, tipo = 'docume
 export const crearRepositorio = async ({ titulo, asignatura, fecha, descripcion }) =>
   (await llamar('github', { accion: 'crearRepositorio', titulo, asignatura, fecha, descripcion })).url
 
+/** Ramas, últimos commits y pull requests del repositorio de una tarea */
+export const leerDesarrollo = (repo) => llamar('github', { accion: 'desarrollo', repo })
+
+/** Crea una rama desde la principal; devuelve { nombre, url } */
+export const crearRama = (repo, nombre) => llamar('github', { accion: 'crearRama', repo, nombre })
+
 const ocupado = {}
 
 /** Pide al servidor las tareas nuevas (el servidor ya las marca como importadas). */
