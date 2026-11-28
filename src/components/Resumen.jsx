@@ -1,10 +1,14 @@
+import { useState } from 'react'
 import { ESTADOS, findOption } from '../constants'
 import { clave } from '../hooks/useProyectos'
+import { integracionDe } from '../integraciones'
 import {
   IconoCarpeta,
   IconoCheck,
+  IconoComentario,
   IconoFlecha,
   IconoGrafico,
+  IconoMas,
   IconoPorcentaje,
   IconoPrioridad,
   IconoReloj,
@@ -19,11 +23,22 @@ const COLOR_BARRA = {
   hecho: 'bg-success',
 }
 
+// Icono de las notificaciones de cambio de estado
+const COLOR_AVISO = {
+  por_hacer: 'bg-base-200 text-base-content/70',
+  en_curso: 'bg-info/10 text-info',
+  en_revision: 'bg-warning/10 text-warning',
+  pruebas: 'bg-secondary/10 text-secondary',
+  hecho: 'bg-success/10 text-success',
+}
+
+const DIA = 86400000
 const hoyISO = () => new Date().toISOString().slice(0, 10)
+const diasHasta = (iso, hoy) => Math.round((new Date(iso + 'T00:00:00') - new Date(hoy + 'T00:00:00')) / DIA)
 const fechaCorta = (iso) =>
   new Date(iso + 'T00:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }).replace('.', '')
 
-export default function Resumen({ proyectos, onAbrir, onIrTablero }) {
+export default function Resumen({ proyectos, todos = proyectos, cambios = [], tableros = [], usuarioId, onAbrir, onIrTablero }) {
   const total = proyectos.length
   const hechos = proyectos.filter((p) => p.estado === 'hecho')
   const activos = proyectos.filter((p) => p.estado !== 'hecho')
@@ -33,13 +48,13 @@ export default function Resumen({ proyectos, onAbrir, onIrTablero }) {
   const hoy = hoyISO()
   const vencidos = activos.filter((p) => p.fecha < hoy).length
 
-  const proximos = [...activos].sort((a, b) => a.fecha.localeCompare(b.fecha)).slice(0, 5)
+  const proximos = [...activos].sort((a, b) => a.fecha.localeCompare(b.fecha)).slice(0, 6)
   const recientes = [...proyectos]
     .sort((a, b) => (b.actualizado ?? b.creado ?? 0) - (a.actualizado ?? a.creado ?? 0))
     .slice(0, 5)
 
   return (
-    <div className="p-4 md:p-8 space-y-4 max-w-[1600px]">
+    <div className="p-4 md:p-8 min-h-full flex flex-col gap-4">
       {/* Indicadores */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <Indicador Icono={IconoCarpeta} color="bg-info/10 text-info" titulo="Proyectos activos" valor={activos.length}
@@ -52,7 +67,7 @@ export default function Resumen({ proyectos, onAbrir, onIrTablero }) {
           valor={`${tasa}%`} pie={`${altaPendientes} de prioridad alta pendientes`} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
         {/* Por estado */}
         <Tarjeta titulo="Proyectos por estado" subtitulo="Distribución actual">
           {total === 0 ? (
@@ -86,6 +101,9 @@ export default function Resumen({ proyectos, onAbrir, onIrTablero }) {
             <ListaProyectos proyectos={proximos} onAbrir={onAbrir} hoy={hoy} />
           )}
         </Tarjeta>
+
+        {/* Notificaciones */}
+        <Notificaciones todos={todos} cambios={cambios} tableros={tableros} usuarioId={usuarioId} hoy={hoy} onAbrir={onAbrir} />
       </div>
 
       {/* Recientes */}
@@ -97,6 +115,7 @@ export default function Resumen({ proyectos, onAbrir, onIrTablero }) {
             Ver tablero <IconoFlecha className="size-3.5" />
           </button>
         }
+        bajo
       >
         {recientes.length === 0 ? (
           <Vacio Icono={IconoTablero} titulo="Sin proyectos todavía" texto="Cuando crees proyectos los verás aquí." />
@@ -132,9 +151,9 @@ function Indicador({ Icono, color, titulo, valor, pie, progreso }) {
   )
 }
 
-function Tarjeta({ titulo, subtitulo, enlace, children }) {
+function Tarjeta({ titulo, subtitulo, enlace, bajo, children }) {
   return (
-    <section className="rounded-xl border border-base-300 bg-base-100 p-4 flex flex-col min-h-72">
+    <section className={`rounded-xl border border-base-300 bg-base-100 p-4 flex flex-col min-w-0 ${bajo ? '' : 'min-h-72'}`}>
       <div className="flex items-start justify-between gap-4 mb-3">
         <div>
           <h2 className="text-sm font-semibold">{titulo}</h2>
@@ -142,7 +161,7 @@ function Tarjeta({ titulo, subtitulo, enlace, children }) {
         </div>
         {enlace}
       </div>
-      <div className="flex-1 flex flex-col">{children}</div>
+      <div className="flex-1 flex flex-col min-h-0">{children}</div>
     </section>
   )
 }
@@ -186,5 +205,128 @@ function ListaProyectos({ proyectos, onAbrir, hoy }) {
         )
       })}
     </ul>
+  )
+}
+
+// ---------- Notificaciones: lo nuevo de los últimos 14 días ----------
+const VENTANA = 14 * DIA
+
+function haceCuanto(ms) {
+  const min = Math.round((Date.now() - ms) / 60000)
+  if (min < 1) return 'ahora'
+  if (min < 60) return `hace ${min} min`
+  const h = Math.round(min / 60)
+  if (h < 24) return `hace ${h} h`
+  const d = Math.round(h / 24)
+  return d === 1 ? 'ayer' : `hace ${d} días`
+}
+
+// Las notificaciones de lo que hago yo salen, pero nunca como "nuevas"
+function crearNotificaciones(todos, cambios, tableros, usuarioId, hoy) {
+  const desde = Date.now() - VENTANA
+  const inicioHoy = new Date(hoy + 'T00:00:00').getTime()
+  const nombreTabla = (id) => tableros.find((t) => t.id === id)?.nombre ?? 'una tabla compartida'
+  const enTabla = (p) => (p.tablero_id !== null ? ` en ${nombreTabla(p.tablero_id)}` : '')
+  const porId = new Map(todos.map((p) => [p.id, p]))
+  const lista = []
+
+  // Cambios de estado
+  for (const c of cambios) {
+    const p = porId.get(c.proyectoId)
+    if (!p || c.fecha < desde) continue
+    const a = findOption(ESTADOS, c.a).label
+    const quien = c.autorId === usuarioId ? 'Moviste' : c.autorNombre ? `${c.autorNombre} movió` : 'Se movió sola'
+    lista.push({
+      id: `e${c.id}`, p, fecha: c.fecha, mia: c.autorId === usuarioId,
+      Icono: c.a === 'hecho' ? IconoCheck : IconoFlecha,
+      color: COLOR_AVISO[c.a] ?? COLOR_AVISO.por_hacer,
+      texto: `${quien} a ${a}${enTabla(p)}`,
+    })
+  }
+
+  for (const p of todos) {
+    // Tareas nuevas: de Classroom/Moodle o de las tablas compartidas (grupos)
+    if (p.creado >= desde) {
+      const origen = integracionDe(p)
+      const mia = p.user_id === usuarioId
+      if (p.tablero_id !== null)
+        lista.push({ id: `n${p.id}`, p, fecha: p.creado, mia, Icono: IconoMas, color: 'bg-info/10 text-info', texto: `${mia ? 'Creaste' : `${p.autorNombre} creó`} una tarea${enTabla(p)}` })
+      else if (origen) lista.push({ id: `n${p.id}`, p, fecha: p.creado, Icono: origen.Icono, color: origen.color, texto: `Nueva tarea de ${origen.corto}` })
+    }
+    // Comentarios de otras personas
+    for (const c of p.comentarios ?? [])
+      if (c.fecha >= desde && c.autorId !== usuarioId)
+        lista.push({ id: `c${c.id}`, p, fecha: c.fecha, Icono: IconoComentario, color: 'bg-secondary/10 text-secondary', texto: `${c.autorNombre} comentó`, cita: c.texto })
+    // Entregas para hoy o mañana
+    const dias = diasHasta(p.fecha, hoy)
+    if (p.estado !== 'hecho' && (dias === 0 || dias === 1))
+      lista.push({ id: `v${p.id}`, p, fecha: inicioHoy, Icono: IconoReloj, color: 'bg-warning/10 text-warning', texto: dias === 0 ? 'Se entrega hoy' : 'Se entrega mañana' })
+  }
+  return lista.sort((a, b) => b.fecha - a.fecha).slice(0, 30)
+}
+
+function Notificaciones({ todos, cambios, tableros, usuarioId, hoy, onAbrir }) {
+  const claveVistas = `notificaciones_vistas_${usuarioId}`
+  const [vistas, setVistas] = useState(() => Number(localStorage.getItem(claveVistas)) || 0)
+  const lista = crearNotificaciones(todos, cambios, tableros, usuarioId, hoy)
+  const esNueva = (n) => !n.mia && n.fecha > vistas
+  const nuevas = lista.filter(esNueva).length
+
+  const marcarLeidas = () => {
+    const ahora = Date.now()
+    localStorage.setItem(claveVistas, String(ahora))
+    setVistas(ahora)
+  }
+
+  return (
+    <Tarjeta
+      titulo={
+        <span className="flex items-center gap-2">
+          Notificaciones
+          {nuevas > 0 && <span className="badge badge-xs badge-soft badge-info">{nuevas} nuevas</span>}
+        </span>
+      }
+      subtitulo="Lo nuevo de los últimos 14 días"
+      enlace={
+        nuevas > 0 && (
+          <button className="text-sm hover:underline shrink-0" onClick={marcarLeidas}>
+            Marcar leídas
+          </button>
+        )
+      }
+    >
+      {lista.length === 0 ? (
+        <Vacio Icono={IconoCheck} titulo="Todo al día" texto="Aquí verás las tareas nuevas, los comentarios y lo que vence pronto." />
+      ) : (
+        <div className="relative flex-1 min-h-48">
+          <ul className="absolute inset-0 overflow-y-auto divide-y divide-base-300 -mx-2">
+            {lista.map((n) => {
+              const nueva = esNueva(n)
+              return (
+                <li key={n.id}>
+                  <button
+                    onClick={() => onAbrir(n.p.id)}
+                    className="w-full flex items-center gap-3 px-2 py-2.5 rounded-lg text-left hover:bg-base-200/60 transition"
+                  >
+                    <span className={`grid place-items-center size-7 rounded-md shrink-0 ${n.color}`}>
+                      <n.Icono className="size-3.5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm truncate">{n.p.titulo}</span>
+                      <span className="block text-xs text-base-content/60 truncate">
+                        {n.texto}
+                        {n.cita ? `: «${n.cita}»` : ''}
+                      </span>
+                    </span>
+                    <span className="text-xs text-base-content/50 shrink-0">{haceCuanto(n.fecha)}</span>
+                    <span className={`size-1.5 rounded-full shrink-0 ${nueva ? 'bg-info' : 'bg-transparent'}`} title={nueva ? 'Nueva' : undefined} />
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+    </Tarjeta>
   )
 }

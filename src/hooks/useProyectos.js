@@ -35,6 +35,7 @@ export function useProyectos(perfil) {
   const usuario = useMemo(() => ({ id: perfil.id, nombre: perfil.nombre }), [perfil.id, perfil.nombre])
   const [proyectos, setProyectos] = useState([])
   const [cargando, setCargando] = useState(true)
+  const [cambios, setCambios] = useState([]) // historial de cambios de estado (notificaciones)
   const [error, setError] = useState('')
   const actuales = useRef(proyectos)
   const nombres = useRef(new Map([[usuario.id, usuario.nombre]]))
@@ -43,13 +44,31 @@ export function useProyectos(perfil) {
   }, [proyectos])
 
   const cargar = useCallback(async () => {
-    const [{ data, error }, { data: gente }] = await Promise.all([
+    const [{ data, error }, { data: gente }, { data: historial }] = await Promise.all([
       supabase.from('proyectos').select('*, comentarios(*)').order('numero'),
       supabase.rpc('companeros'), // si aún no existe la función, solo se conoce el nombre propio
+      // Cambios de estado de los últimos 14 días (si aún no existe la tabla, no hay y ya está)
+      supabase
+        .from('cambios_estado')
+        .select('id, proyecto_id, user_id, de, a, creado')
+        .gte('creado', new Date(Date.now() - 14 * 86400000).toISOString())
+        .order('creado', { ascending: false })
+        .limit(200),
     ])
     nombres.current = new Map([...(gente ?? []).map((g) => [g.id, g.nombre]), [usuario.id, usuario.nombre]])
     if (error) setError(`No se pudieron cargar los proyectos: ${error.message}`)
     else setProyectos(data.map((f) => desdeFila(f, nombres.current)))
+    setCambios(
+      (historial ?? []).map((c) => ({
+        id: c.id,
+        proyectoId: c.proyecto_id,
+        autorId: c.user_id,
+        autorNombre: c.user_id ? (nombres.current.get(c.user_id) ?? 'Usuario') : null,
+        de: c.de,
+        a: c.a,
+        fecha: Date.parse(c.creado),
+      })),
+    )
     setCargando(false)
   }, [usuario])
 
@@ -246,6 +265,7 @@ export function useProyectos(perfil) {
 
   return {
     proyectos,
+    cambios,
     cargando,
     error,
     limpiarError: () => setError(''),

@@ -62,6 +62,7 @@ export default function App() {
 function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
   const {
     proyectos,
+    cambios,
     cargando,
     error,
     limpiarError,
@@ -205,7 +206,7 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
           ) : vista === 'configuracion' ? (
             <Configuracion usuario={usuario} onActualizarUsuario={onActualizarUsuario} integraciones={integraciones} onIntegracion={setConfigIntegracion} />
           ) : vista === 'resumen' ? (
-            <Resumen proyectos={personales} onAbrir={(id) => setPanel({ id })} onIrTablero={() => setVista('tablero')} />
+            <Resumen proyectos={personales} todos={proyectos} cambios={cambios} tableros={tablas.tableros} usuarioId={usuario.id} onAbrir={(id) => setPanel({ id })} onIrTablero={() => setVista('tablero')} />
           ) : (
             <>
               {tableroActual && (
