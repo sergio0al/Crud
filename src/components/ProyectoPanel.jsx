@@ -40,6 +40,7 @@ export default function ProyectoPanel({
   clave,
   usuario,
   asignaturas = [],
+  personas, // miembros de la tabla compartida (solo si la tarea es de una); permite asignarla
   classroomConectado,
   githubConectado,
   onConectarGithub,
@@ -183,6 +184,31 @@ export default function ProyectoPanel({
                     onChange={(e) => e.target.value && cambiar({ fecha: e.target.value })}
                   />
                 </Fila>
+
+                {personas && (
+                  <Fila etiqueta="Asignado a">
+                    <label className="flex items-center gap-2 -ml-2 px-2 py-1 rounded-md hover:bg-base-200 cursor-pointer">
+                      {datos.asignado ? (
+                        <Avatar nombre={personas.find((x) => x.id === datos.asignado)?.nombre ?? datos.asignadoNombre} pequeno />
+                      ) : (
+                        <span className="grid place-items-center size-6 rounded-full border border-dashed border-base-content/30 text-base-content/40 text-xs shrink-0">?</span>
+                      )}
+                      <select
+                        className={`flex-1 bg-transparent outline-none cursor-pointer appearance-none ${datos.asignado ? '' : 'text-base-content/50'}`}
+                        value={datos.asignado ?? ''}
+                        onChange={(e) => cambiar({ asignado: e.target.value || null })}
+                      >
+                        <option value="">Sin asignar</option>
+                        {personas.map((x) => (
+                          <option key={x.id} value={x.id}>
+                            {x.nombre}
+                            {x.id === usuario.id ? ' (tú)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </Fila>
+                )}
 
                 <Fila etiqueta="Informador">
                   <span className="flex items-center gap-2 py-1">

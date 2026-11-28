@@ -13,6 +13,7 @@ import {
   IconoPrioridad,
   IconoReloj,
   IconoTablero,
+  IconoUsuarios,
 } from './Iconos'
 
 const COLOR_BARRA = {
@@ -245,6 +246,11 @@ function crearNotificaciones(todos, cambios, tableros, usuarioId, hoy) {
   }
 
   for (const p of todos) {
+    // Tareas que me han asignado
+    if (p.asignado === usuarioId && p.asignadoEn >= desde) {
+      const mia = p.asignadoPor === usuarioId
+      lista.push({ id: `a${p.id}${p.asignadoEn}`, p, fecha: p.asignadoEn, mia, Icono: IconoUsuarios, color: 'bg-primary/10 text-primary', texto: `${mia ? 'Te la asignaste' : `${p.asignadoPorNombre ?? 'Alguien'} te asignó esta tarea`}${enTabla(p)}` })
+    }
     // Tareas nuevas: de Classroom/Moodle o de las tablas compartidas (grupos)
     if (p.creado >= desde) {
       const origen = integracionDe(p)

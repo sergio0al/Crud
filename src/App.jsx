@@ -295,6 +295,7 @@ function Escritorio({ usuario, onSalir, onActualizarUsuario }) {
             clave={abierto && clave(abierto)}
             usuario={usuario}
             asignaturas={listarAsignaturas(proyectos).map((a) => a.nombre)}
+            personas={tablas.tableros.find((t) => t.id === (abierto ? abierto.tablero_id : panel.tablero_id))?.personas}
             classroomConectado={classroom.conectado}
             githubConectado={github.conectado}
             onConectarGithub={() => setConfigIntegracion('github')}

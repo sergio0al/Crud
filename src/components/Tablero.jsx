@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { iniciales } from '../auth'
 import { ESTADOS, PRIORIDADES } from '../constants'
 import { clave } from '../hooks/useProyectos'
 import { integracionDe } from '../integraciones'
@@ -419,6 +420,14 @@ export default function Tablero({ proyectos, busqueda, onBusqueda, buscadorMovil
                           <span title={`Prioridad ${p.prioridad}`}>
                             <IconoPrioridad prioridad={p.prioridad} />
                           </span>
+                          {p.asignado && (
+                            <span
+                              title={`Asignada a ${p.asignadoNombre}`}
+                              className="grid place-items-center size-5 rounded-full bg-primary text-primary-content text-[9px] font-medium"
+                            >
+                              {iniciales(p.asignadoNombre)}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </article>

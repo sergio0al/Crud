@@ -5,7 +5,7 @@ import { migrarEstado } from '../constants'
 export const PREFIJO = 'PRJ'
 export const clave = (p) => `${PREFIJO}-${p.numero}`
 
-const COLUMNAS = ['titulo', 'descripcion', 'fecha', 'estado', 'prioridad', 'asignatura', 'documento', 'repositorio', 'origen', 'tablero_id']
+const COLUMNAS = ['titulo', 'descripcion', 'fecha', 'estado', 'prioridad', 'asignatura', 'documento', 'repositorio', 'origen', 'tablero_id', 'asignado']
 const aFila = (datos) => Object.fromEntries(COLUMNAS.filter((k) => k in datos).map((k) => [k, datos[k] ?? null]))
 
 // nombres: Map id → nombre de los usuarios con los que comparto tableros (y yo)
@@ -17,6 +17,11 @@ const desdeFila = (f, nombres) => ({
   asignatura: f.asignatura ?? f.origen?.curso ?? '', // ?? por si aún no existe la columna en la base de datos
   creado: Date.parse(f.creado),
   actualizado: f.actualizado ? Date.parse(f.actualizado) : null,
+  asignado: f.asignado ?? null, // persona del equipo que tiene que hacerla (solo tablas compartidas)
+  asignadoNombre: f.asignado ? (nombres.get(f.asignado) ?? 'Usuario') : null,
+  asignadoPor: f.asignado_por ?? null,
+  asignadoPorNombre: f.asignado_por ? (nombres.get(f.asignado_por) ?? 'Usuario') : null,
+  asignadoEn: f.asignado_en ? Date.parse(f.asignado_en) : null,
   comentarios: (f.comentarios ?? [])
     .map((c) => ({ id: c.id, autorId: c.user_id, autorNombre: nombres.get(c.user_id) ?? 'Usuario', texto: c.texto, fecha: Date.parse(c.creado) }))
     .sort((a, b) => a.fecha - b.fecha),
@@ -97,7 +102,7 @@ export function useProyectos(perfil) {
   // Si algo falla en el servidor, se avisa y se recarga el estado real
   const fallo = (err) => {
     const mensaje = err.message ?? String(err)
-    const columna = mensaje.match(/'(asignatura|documento|repositorio|tablero_id)' column/)?.[1]
+    const columna = mensaje.match(/'(asignatura|documento|repositorio|tablero_id|asignado)' column/)?.[1]
     setError(
       columna
         ? `Falta la columna "${columna}" en la base de datos: ejecuta supabase/${columna === 'tablero_id' ? 'compartidos' : columna === 'repositorio' ? 'github' : columna}.sql en Supabase → SQL Editor.`
@@ -133,7 +138,12 @@ export function useProyectos(perfil) {
   const editar = async (id, campos) => {
     const fila = aFila(campos)
     if (!Object.keys(fila).length) return
-    setProyectos((ps) => ps.map((p) => (p.id === id ? { ...p, ...fila, actualizado: Date.now() } : p)))
+    // Al asignar, el nombre se pone ya (el servidor apunta quién y cuándo)
+    const extra =
+      'asignado' in fila
+        ? { asignadoNombre: fila.asignado ? (nombres.current.get(fila.asignado) ?? 'Usuario') : null, asignadoPor: fila.asignado ? usuario.id : null, asignadoEn: fila.asignado ? Date.now() : null }
+        : {}
+    setProyectos((ps) => ps.map((p) => (p.id === id ? { ...p, ...fila, ...extra, actualizado: Date.now() } : p)))
     const { error } = await supabase
       .from('proyectos')
       .update({ ...fila, actualizado: new Date().toISOString() })

@@ -15,10 +15,11 @@ export function useTableros(usuarioId) {
   const [disponible, setDisponible] = useState(true) // false si aún no se ejecutó compartidos.sql
 
   const cargar = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('tableros')
-      .select('id, nombre, creador, creado, tablero_miembros(user_id, rol)')
-      .order('creado')
+    const [{ data, error }, { data: gente }] = await Promise.all([
+      supabase.from('tableros').select('id, nombre, creador, creado, tablero_miembros(user_id, rol)').order('creado'),
+      supabase.rpc('companeros'), // nombres de las personas de mis tablas
+    ])
+    const nombres = new Map((gente ?? []).map((g) => [g.id, g.nombre]))
     if (error) {
       setDisponible(false)
       setTableros([])
@@ -30,6 +31,10 @@ export function useTableros(usuarioId) {
         id: t.id,
         nombre: t.nombre,
         miembros: t.tablero_miembros.length,
+        // Personas de la tabla (para asignarles tareas)
+        personas: t.tablero_miembros
+          .map((m) => ({ id: m.user_id, nombre: nombres.get(m.user_id) ?? 'Usuario' }))
+          .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')),
         soyPropietario: t.tablero_miembros.some((m) => m.user_id === usuarioId && m.rol === 'propietario'),
       })),
     )
