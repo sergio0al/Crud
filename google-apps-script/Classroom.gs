@@ -41,6 +41,39 @@ function doGet(e) {
 }
 
 /**
+ * Peticiones POST de la app (el token va en la URL, igual que en doGet).
+ * accion "correo": envía desde tu Gmail una notificación de Sarflow a un usuario de la app.
+ */
+function doPost(e) {
+  if (!e || !e.parameter || e.parameter.token !== TOKEN) {
+    return json({ error: 'No autorizado: revisa el token de la URL' });
+  }
+  let datos = {};
+  try {
+    datos = JSON.parse(e.postData.contents);
+  } catch (err) {
+    return json({ error: 'Petición no válida' });
+  }
+  if (datos.accion === 'correo') return json(enviarCorreo(datos));
+  return json({ error: 'Acción desconocida' });
+}
+
+function enviarCorreo(d) {
+  const para = String(d.para || '').trim();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(para)) return { error: 'Dirección de correo no válida' };
+  GmailApp.sendEmail(para, String(d.asunto || 'Sarflow').slice(0, 200), String(d.texto || ''), {
+    htmlBody: String(d.html || ''),
+    name: 'Sarflow',
+  });
+  return { enviado: true };
+}
+
+// Para probar el envío desde el editor de Apps Script (te llega a ti mismo)
+function probarCorreo() {
+  Logger.log(enviarCorreo({ para: Session.getActiveUser().getEmail(), asunto: 'Sarflow: prueba', texto: 'Funciona.', html: '<p>Funciona.</p>' }));
+}
+
+/**
  * Tareas de Classroom que ya has entregado (o que el profesor ha devuelto), para pasarlas a Hecho.
  * Necesita el servicio avanzado "Google Classroom API" (Servicios → + → Google Classroom API).
  * Si no está activado devuelve null y la app sigue funcionando igual.

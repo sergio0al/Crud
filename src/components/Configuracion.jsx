@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { COLORES, TEMA_INICIAL, cargarTema, esHex, guardarTema } from '../tema'
 import { actualizarPerfil } from '../auth'
+import { supabase } from '../supabase'
 import { PREFERENCIAS_INICIALES, TIPOS_NOTIFICACION } from '../notificaciones'
 import { IconoCheck, IconoPrioridad } from './Iconos'
 
@@ -32,6 +33,23 @@ export default function Configuracion({ usuario, onActualizarUsuario, integracio
   // Preferencias de notificaciones (van dentro del tema para que se guarden en el perfil)
   const avisos = { ...PREFERENCIAS_INICIALES, ...(tema.notificaciones ?? {}) }
   const cambiarAviso = (clave, valor) => cambiar({ notificaciones: { ...avisos, [clave]: valor } })
+  const cambiarCorreo = (clave, valor) => cambiar({ notificaciones: { ...avisos, correo: { ...(avisos.correo ?? {}), [clave]: valor } } })
+
+  // Correo de prueba (Edge Function "correo")
+  const [prueba, setPrueba] = useState({ estado: null, texto: '' })
+  const enviarPrueba = async () => {
+    setPrueba({ estado: 'enviando', texto: '' })
+    const { data, error } = await supabase.functions.invoke('correo', { body: { accion: 'prueba', app: window.location.origin } })
+    if (error) {
+      let mensaje = 'No se pudo enviar el correo de prueba'
+      try {
+        mensaje = (await error.context.json()).error ?? mensaje
+      } catch {
+        /* sin cuerpo */
+      }
+      setPrueba({ estado: 'error', texto: mensaje })
+    } else setPrueba({ estado: 'ok', texto: `Enviado a ${data.email}. Mira también en spam.` })
+  }
 
   const elegirColor = (color) => {
     setHex(color ?? '')
@@ -143,18 +161,30 @@ export default function Configuracion({ usuario, onActualizarUsuario, integracio
 
       <div className="pt-4">
         <h2 className="text-base font-semibold">Notificaciones</h2>
-        <p className="text-sm text-base-content/60">Elige qué avisos aparecen en el recuadro de Notificaciones del resumen.</p>
+        <p className="text-sm text-base-content/60">Elige qué avisos ves en el resumen y cuáles te llegan también por correo.</p>
       </div>
 
-      <Tarjeta titulo="Qué quieres ver" descripcion="Desactiva lo que no te interese. Se guarda en tu cuenta.">
-        <ul className="divide-y divide-base-300 -my-2">
+      <Tarjeta titulo="Qué quieres recibir" descripcion="“App”: en el recuadro de Notificaciones del resumen. “Correo”: además, un correo a tu dirección. Se guarda en tu cuenta.">
+        <div className="flex justify-end gap-4 pb-1 pr-0.5 text-[11px] font-medium text-base-content/50">
+          <span className="w-9 text-center">App</span>
+          <span className="w-9 text-center">Correo</span>
+        </div>
+        <ul className="divide-y divide-base-300">
           {TIPOS_NOTIFICACION.map((t) => (
-            <Interruptor key={t.clave} titulo={t.titulo} texto={t.texto} activo={avisos[t.clave]}
-              onCambiar={(v) => cambiarAviso(t.clave, v)} />
+            <Interruptor key={t.clave} titulo={t.titulo} texto={t.texto}
+              activo={avisos[t.clave]} onCambiar={(v) => cambiarAviso(t.clave, v)}
+              correo={Boolean(avisos.correo?.[t.clave])} onCorreo={(v) => cambiarCorreo(t.clave, v)} />
           ))}
-          <Interruptor titulo="También lo que hago yo" texto="Mostrar mis propias acciones, como mover mis tareas o crear tareas en tablas."
+          <Interruptor titulo="También lo que hago yo" texto="Mostrar en el resumen mis propias acciones, como mover mis tareas. Nunca llegan por correo."
             activo={avisos.propias} onCambiar={(v) => cambiarAviso('propias', v)} />
         </ul>
+        <div className="flex flex-wrap items-center gap-3 pt-3 mt-1 border-t border-base-300">
+          <button className="btn btn-sm" disabled={prueba.estado === 'enviando'} onClick={enviarPrueba}>
+            {prueba.estado === 'enviando' && <span className="loading loading-spinner loading-xs" />}
+            Enviarme un correo de prueba
+          </button>
+          {prueba.texto && <span className={`text-xs ${prueba.estado === 'error' ? 'text-error' : 'text-success'}`}>{prueba.texto}</span>}
+        </div>
       </Tarjeta>
 
       <div className="pt-4">
@@ -194,16 +224,22 @@ export default function Configuracion({ usuario, onActualizarUsuario, integracio
   )
 }
 
-function Interruptor({ titulo, texto, activo, onCambiar }) {
+// Fila con el interruptor de "App" y, si se pasa onCorreo, el de "Correo"
+function Interruptor({ titulo, texto, activo, onCambiar, correo, onCorreo }) {
   return (
-    <li>
-      <label className="flex items-center gap-4 py-2.5 cursor-pointer">
-        <span className="flex-1 min-w-0">
-          <span className="block text-sm font-medium">{titulo}</span>
-          <span className="block text-xs text-base-content/60">{texto}</span>
-        </span>
-        <input type="checkbox" className="toggle toggle-sm toggle-primary" checked={activo} onChange={(e) => onCambiar(e.target.checked)} />
-      </label>
+    <li className="flex items-center gap-4 py-2.5">
+      <span className="flex-1 min-w-0">
+        <span className="block text-sm font-medium">{titulo}</span>
+        <span className="block text-xs text-base-content/60">{texto}</span>
+      </span>
+      <input type="checkbox" className="toggle toggle-sm toggle-primary" checked={activo} aria-label={`${titulo} en la app`}
+        onChange={(e) => onCambiar(e.target.checked)} />
+      {onCorreo ? (
+        <input type="checkbox" className="toggle toggle-sm toggle-primary" checked={correo} aria-label={`${titulo} por correo`}
+          onChange={(e) => onCorreo(e.target.checked)} />
+      ) : (
+        <span className="w-9" />
+      )}
     </li>
   )
 }

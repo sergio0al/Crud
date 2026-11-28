@@ -4,6 +4,14 @@
 
 export const NOVEDADES = [
   {
+    id: 24,
+    fecha: '2026-11-28',
+    tipo: 'nuevo',
+    titulo: 'Notificaciones por correo',
+    texto:
+      'En Configuración → Notificaciones, cada tipo de aviso tiene ahora un interruptor “Correo”. Lo que actives te llega también a tu correo, agrupado en un solo mensaje cada pocos minutos. Hay un botón para enviarte un correo de prueba.',
+  },
+  {
     id: 23,
     fecha: '2026-11-28',
     tipo: 'mejora',
